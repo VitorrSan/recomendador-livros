@@ -1,0 +1,1 @@
+A pasta será utilizada para a aplicações de Front-end definidas pelo responsável.

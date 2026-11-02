@@ -1,0 +1,32 @@
+# Ambientes virtuais Python
+.venv/
+venv/
+
+# Arquivos temporários Python
+__pycache__/
+*.pyc
+
+# Configurações e segredos
+.env
+.env.*
+!.env.example
+
+# Arquivos locais do VS Code
+.vscode/
+
+# Dependências e builds do Front-end
+node_modules/
+dist/
+build/
+
+# Cache de testes
+.pytest_cache/
+.coverage
+
+# Bancos de dados locais
+*.db
+*.sqlite3
+
+# Arquivos temporários do sistema
+.DS_Store
+Thumbs.db

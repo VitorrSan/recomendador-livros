@@ -1,0 +1,1 @@
+Nessa pasta "nlp" é onde abrigará a geração de embbedings , a similaridade do cosseno e os rankink dos livros.
