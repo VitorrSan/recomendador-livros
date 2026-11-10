@@ -32,6 +32,12 @@ Os comandos devem ser executados no PowerShell, a partir da pasta `backend`.
 
 `python -m pip install -r requirements.txt`
 
+**Selecionar o ambiente no VS Code:**
+
+Abra a pasta do repositório no editor e use `Ctrl+Shift+P` → `Python: Select Interpreter` → `backend/.venv/Scripts/python.exe`.
+
+O Python selecionado pelo editor deve ser o mesmo ambiente em que as dependências foram instaladas. Caso imports como `fastapi`, `sqlmodel` ou `pytest` apareçam como não encontrados, confira essa seleção antes de reinstalar pacotes. Ativar o ambiente no terminal não garante que o analisador do editor utilize o mesmo interpretador.
+
 ## 4. Executar a aplicação
 
 `python -m uvicorn app.main:app --reload`
@@ -75,9 +81,39 @@ Resposta esperada: `{"status": "ok"}`
 
 **GET /books**
 
-Consulta os livros cadastrados no SQLite e retorna uma lista em JSON.
+Consulta os livros cadastrados no SQLite e retorna uma lista em JSON, ordenada por ID crescente e com paginação aplicada no banco de dados.
 
-Se o banco estiver vazio, a resposta será uma lista vazia: `[]`.
+Parâmetros opcionais da consulta:
+
+| Parâmetro | Padrão | Valores aceitos | Finalidade |
+|---|---|---|---|
+| `offset` | `0` | Inteiro maior ou igual a zero | Quantidade de livros a pular |
+| `limit` | `20` | Inteiro entre 1 e 100 | Quantidade máxima de livros a retornar |
+
+Exemplos:
+
+- `/books`: retorna até os primeiros 20 livros.
+- `/books?offset=0&limit=20`: primeira página de até 20 livros.
+- `/books?offset=20&limit=20`: segunda página de até 20 livros.
+- `/books?offset=40&limit=20`: terceira página de até 20 livros.
+
+Sem parâmetros, a listagem passa a retornar no máximo 20 livros. Para percorrer o catálogo, o Front-end deve aumentar o `offset` pelo `limit` utilizado.
+
+Se o banco estiver vazio ou o `offset` estiver além dos registros disponíveis, a resposta será uma lista vazia: `[]`, com HTTP `200`. A última página pode conter menos livros que o `limit`.
+
+Parâmetros inválidos, como `offset=-1`, `limit=0` ou `limit=101`, recebem HTTP `422` com detalhes da validação. A resposta continua sendo uma lista, sem metadados de total de livros ou páginas.
+
+**GET /books/{book_id}**
+
+Consulta um livro pela chave primária `id`. O parâmetro `book_id` faz parte do caminho e deve ser um inteiro maior ou igual a 1.
+
+Exemplo: `/books/7` procura o livro de ID `7`, independentemente da página em que ele apareça na listagem.
+
+- Livro encontrado: HTTP `200` com um objeto JSON contendo `id`, `titulo`, `autor`, `ano_publicacao`, `genero` e `descricao`.
+- ID válido, mas inexistente: HTTP `404` com `{"detail": "Livro não encontrado"}`. O mesmo ocorre se o catálogo estiver vazio.
+- ID inválido, como `/books/abc`, `/books/1.5`, `/books/0` ou `/books/-1`: HTTP `422` com detalhes da validação.
+
+A consulta utiliza `session.get(Book, book_id)` para buscar diretamente pela chave primária, sem carregar a lista de livros.
 
 ## 7. Testes automatizados
 
@@ -88,14 +124,15 @@ Executar na pasta `backend`:
 Testes existentes:
 
 - `test_health.py`: verifica o endpoint `/health`.
-- `test_books.py`: verifica a listagem utilizando um banco SQLite temporário.
+- `test_books.py`: verifica catálogo vazio, listagem, paginação padrão, uso independente dos parâmetros, páginas ordenadas, limites aceitos e parâmetros inválidos, utilizando um banco SQLite temporário por teste.
+
+Os testes de livros também cobrem a consulta por ID: primeiro, intermediário e último livro do catálogo de teste, incluindo um livro fora da primeira página; resposta completa; ID inexistente; catálogo vazio; e IDs inválidos.
 
 Os testes não dependem de livros cadastrados no banco local do desenvolvedor.
 
 ## 8. Funcionalidades futuras
 
-- Paginação e filtros no catálogo.
-- Consulta de livros por ID.
+- Filtros no catálogo.
 - Importação do dataset definitivo.
 - Integração com o Transformer.
 - Endpoint de recomendações semânticas.

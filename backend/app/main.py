@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, Depends
+from fastapi import Depends, FastAPI, HTTPException, Path, Query
 from sqlmodel import Session, select
 from app.db import engine, create_db_and_tables, get_session
 from app.models import Book
@@ -24,7 +24,24 @@ def health():
 
 
 @app.get("/books", response_model=list[Book])
-def listar_livros(session: Session = Depends(get_session)):
-    consulta = select(Book).order_by(Book.id)
+def listar_livros(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: Session = Depends(get_session),
+):
+    consulta = select(Book).order_by(Book.id).offset(offset).limit(limit)
     livros = session.exec(consulta).all()
     return livros
+
+
+@app.get("/books/{book_id}", response_model=Book)
+def buscar_livro(
+    book_id: int = Path(ge=1),
+    session: Session = Depends(get_session),
+):
+    livro = session.get(Book, book_id)
+
+    if livro is None:
+        raise HTTPException(status_code=404, detail="Livro não encontrado")
+
+    return livro
