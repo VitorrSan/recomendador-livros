@@ -139,3 +139,40 @@ def test_parametros_de_paginacao_invalidos(client, parametro, valor):
 
     assert resposta.status_code == 422
     assert resposta.json()["detail"][0]["loc"] == ["query", parametro]
+
+
+@pytest.mark.parametrize("book_id", [1, 13, 25])
+def test_buscar_livro_por_id(client, catalogo, book_id):
+    resposta = client.get(f"/books/{book_id}")
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {
+        "id": book_id,
+        "titulo": f"Livro {book_id}",
+        "autor": "Autor de teste",
+        "ano_publicacao": None,
+        "genero": None,
+        "descricao": "Descrição para validar a paginação",
+    }
+
+
+def test_buscar_livro_inexistente(client, catalogo):
+    resposta = client.get("/books/999")
+
+    assert resposta.status_code == 404
+    assert resposta.json() == {"detail": "Livro não encontrado"}
+
+
+def test_buscar_livro_em_catalogo_vazio(client):
+    resposta = client.get("/books/1")
+
+    assert resposta.status_code == 404
+    assert resposta.json() == {"detail": "Livro não encontrado"}
+
+
+@pytest.mark.parametrize("book_id", ["abc", "1.5", "0", "-1"])
+def test_id_de_livro_invalido(client, book_id):
+    resposta = client.get(f"/books/{book_id}")
+
+    assert resposta.status_code == 422
+    assert resposta.json()["detail"][0]["loc"] == ["path", "book_id"]
