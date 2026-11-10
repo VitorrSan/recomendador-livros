@@ -24,7 +24,11 @@ def health():
 
 
 @app.get("/books", response_model=list[Book])
-def listar_livros(session: Session = Depends(get_session)):
-    consulta = select(Book).order_by(Book.id)
+def listar_livros(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: Session = Depends(get_session),
+):
+    consulta = select(Book).order_by(Book.id).offset(offset).limit(limit)
     livros = session.exec(consulta).all()
     return livros
