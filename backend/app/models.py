@@ -7,3 +7,9 @@ class Book (SQLModel,table = True):
     ano_publicacao:int | None = None
     genero:str | None = None
     descricao:str
+    capa_url: str | None = None
+
+
+class GoodreadsBook(SQLModel, table=True):
+    goodreads_id: str = Field(primary_key=True)
+    book_id: int = Field(foreign_key="book.id")

@@ -1,5 +1,7 @@
 
 from pathlib import Path
+
+from sqlalchemy import Connection, event, inspect
 from sqlmodel import SQLModel, Session, create_engine
 
 from app import models
@@ -8,6 +10,7 @@ from app import models
 # Localização do banco
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "books.db"
+SQLITE_MAX_INTEGER = 2**63 - 1
 
 # Configuração do SQLite
 sqlite_url = f"sqlite:///{DB_PATH.as_posix()}"
@@ -15,9 +18,24 @@ sqlite_url = f"sqlite:///{DB_PATH.as_posix()}"
 engine = create_engine(sqlite_url, echo=True)
 
 
-# Criação das tabelas
+@event.listens_for(engine, "connect")
+def habilitar_chaves_estrangeiras(conexao, _registro):
+    conexao.execute("PRAGMA foreign_keys=ON").close()
+
+
+def preparar_banco(conexao: Connection):
+    SQLModel.metadata.create_all(conexao)
+
+    # Bancos antigos precisam da coluna nova antes de consultar Book.
+    colunas = inspect(conexao).get_columns(models.Book.__tablename__)
+    if all(coluna["name"] != "capa_url" for coluna in colunas):
+        conexao.exec_driver_sql("ALTER TABLE book ADD COLUMN capa_url VARCHAR")
+
+
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    with engine.begin() as conexao:
+        conexao.exec_driver_sql("BEGIN IMMEDIATE")
+        preparar_banco(conexao)
 
 
 # Fornecimento de sessões para a API

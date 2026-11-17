@@ -1,6 +1,6 @@
 from fastapi import Depends, FastAPI, HTTPException, Path, Query
 from sqlmodel import Session, select
-from app.db import engine, create_db_and_tables, get_session
+from app.db import SQLITE_MAX_INTEGER, create_db_and_tables, get_session
 from app.models import Book
 from contextlib import asynccontextmanager
 
@@ -25,7 +25,7 @@ def health():
 
 @app.get("/books", response_model=list[Book])
 def listar_livros(
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=SQLITE_MAX_INTEGER),
     limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
 ):
@@ -36,7 +36,7 @@ def listar_livros(
 
 @app.get("/books/{book_id}", response_model=Book)
 def buscar_livro(
-    book_id: int = Path(ge=1),
+    book_id: int = Path(ge=1, le=SQLITE_MAX_INTEGER),
     session: Session = Depends(get_session),
 ):
     livro = session.get(Book, book_id)
