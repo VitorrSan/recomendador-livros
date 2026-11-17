@@ -13,6 +13,7 @@ Este módulo será responsável por disponibilizar os dados dos livros e integra
 - Uvicorn
 - SQLModel e SQLAlchemy
 - SQLite
+- NumPy
 - pytest
 - HTTPX / HTTPX2
 
@@ -134,6 +135,19 @@ Exemplo: `/books/7` procura o livro de ID `7`, independentemente da página em q
 
 A consulta utiliza `session.get(Book, book_id)` para buscar diretamente pela chave primária, sem carregar a lista de livros.
 
+**GET /books/{book_id}/similar**
+
+Retorna uma lista de recomendações ordenadas por similaridade do cosseno. Cada item tem `livro` (com os mesmos campos de `GET /books/{book_id}`) e `similaridade` (número de −1 a 1). O parâmetro `limit` aceita valores de 1 a 20, com padrão de 5. Exemplo: `/books/1/similar?limit=3`.
+
+Coloque `embeddings_livros.npy` e `livros_metadata.csv`, exportados juntos pelo notebook da equipe, em `backend/app/nlp`. O CSV identifica a posição de cada vetor pela coluna `book_id` e o livro pela URL do Goodreads. O Backend cruza o ID Goodreads com o SQLite para devolver os IDs usados pela API.
+
+Os arquivos são carregados e validados na primeira consulta de similares. Reinicie o servidor ao substituir os artefatos. A API responde com:
+
+- HTTP `200` e uma lista de similares, sempre sem o próprio livro. A lista fica vazia se o livro existir mas não tiver vetor ou candidatos no catálogo.
+- HTTP `404` se o livro não existir.
+- HTTP `422` se o ID ou o limite for inválido.
+- HTTP `503` se o livro tiver vínculo no catálogo e os artefatos para recomendar estiverem ausentes ou inválidos.
+
 ## 7. Testes automatizados
 
 Executar na pasta `backend`:
@@ -144,6 +158,8 @@ Testes existentes:
 
 - `test_health.py`: verifica o endpoint `/health`.
 - `test_books.py`: verifica catálogo vazio, listagem, paginação padrão, uso independente dos parâmetros, páginas ordenadas, limites aceitos e parâmetros inválidos, utilizando um banco SQLite temporário por teste.
+- `test_importar_catalogo.py`: verifica validação do CSV, cadastro e reimportação em SQLite temporário.
+- `test_recomendacoes.py`: verifica o vínculo por Goodreads, a ordem do ranking e as respostas quando faltam livros ou artefatos.
 
 Os testes de livros também cobrem a consulta por ID: primeiro, intermediário e último livro do catálogo de teste, incluindo um livro fora da primeira página; resposta completa; ID inexistente; catálogo vazio; e IDs inválidos.
 
@@ -154,7 +170,7 @@ Os testes não dependem de livros cadastrados no banco local do desenvolvedor.
 - Filtros no catálogo.
 - Importação do dataset definitivo.
 - Integração com o Transformer.
-- Endpoint de recomendações semânticas.
+- Busca semântica por texto.
 - Testes adicionais e hospedagem.
 
 ## 9. Observações

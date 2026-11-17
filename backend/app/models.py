@@ -13,3 +13,8 @@ class Book (SQLModel,table = True):
 class GoodreadsBook(SQLModel, table=True):
     goodreads_id: str = Field(primary_key=True)
     book_id: int = Field(foreign_key="book.id")
+
+
+class LivroSimilar(SQLModel):
+    livro: Book
+    similaridade: float
