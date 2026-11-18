@@ -27,6 +27,10 @@ build/
 *.db
 *.sqlite3
 
+# Artefatos de PLN gerados no Colab
+/backend/app/nlp/embeddings_livros.npy
+/backend/app/nlp/livros_metadata.csv
+
 # Arquivos temporários do sistema
 .DS_Store
 Thumbs.db

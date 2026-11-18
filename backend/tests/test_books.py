@@ -69,6 +69,7 @@ def test_listar_livros(client, engine_teste):
             titulo="Livro de teste",
             autor="Autor de teste",
             descricao="Descrição para validar a API",
+            capa_url="https://covers.example.org/livro.jpg",
         )
         session.add(livro)
         session.commit()
@@ -79,6 +80,7 @@ def test_listar_livros(client, engine_teste):
     assert resposta.status_code == 200
     assert len(resposta.json()) == 1
     assert resposta.json()[0]["titulo"] == "Livro de teste"
+    assert resposta.json()[0]["capa_url"] == "https://covers.example.org/livro.jpg"
 
 
 def test_paginacao_padrao(client, catalogo):
@@ -125,6 +127,7 @@ def test_paginas_do_catalogo(client, catalogo, offset, limit, ids_esperados):
     "parametro, valor",
     [
         ("offset", -1),
+        ("offset", 2**63),
         ("offset", "abc"),
         ("offset", "1.5"),
         ("limit", 0),
@@ -153,6 +156,7 @@ def test_buscar_livro_por_id(client, catalogo, book_id):
         "ano_publicacao": None,
         "genero": None,
         "descricao": "Descrição para validar a paginação",
+        "capa_url": None,
     }
 
 
@@ -170,7 +174,7 @@ def test_buscar_livro_em_catalogo_vazio(client):
     assert resposta.json() == {"detail": "Livro não encontrado"}
 
 
-@pytest.mark.parametrize("book_id", ["abc", "1.5", "0", "-1"])
+@pytest.mark.parametrize("book_id", ["abc", "1.5", "0", "-1", str(2**63)])
 def test_id_de_livro_invalido(client, book_id):
     resposta = client.get(f"/books/{book_id}")
 

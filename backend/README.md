@@ -13,6 +13,7 @@ Este módulo será responsável por disponibilizar os dados dos livros e integra
 - Uvicorn
 - SQLModel e SQLAlchemy
 - SQLite
+- NumPy
 - pytest
 - HTTPX / HTTPX2
 
@@ -58,7 +59,7 @@ O arquivo `books.db` é local e não deve ser versionado no GitHub.
 
 Durante a inicialização da aplicação, a função `create_db_and_tables()` é chamada pelo mecanismo `lifespan` do FastAPI, criando as tabelas ausentes.
 
-Essa inicialização não cadastra livros automaticamente e não realiza migrações em tabelas existentes.
+O cadastro de livros ocorre pelo importador. Em bancos criados antes do suporte a capas, a inicialização acrescenta a coluna opcional `capa_url` à tabela existente.
 
 O modelo atual `Book` contém os campos:
 
@@ -68,8 +69,27 @@ O modelo atual `Book` contém os campos:
 - `ano_publicacao`
 - `genero`
 - `descricao`
+- `capa_url`
 
 O modelo poderá ser expandido após a definição do dataset definitivo.
+
+### Importar o catálogo do Goodreads
+
+O importador recebe o CSV limpo gerado pelo notebook da equipe. A partir da pasta `backend`, valide o arquivo com:
+
+```powershell
+python -m app.importar_catalogo "C:\caminho\livros_limpos.csv"
+```
+
+Use o caminho real do arquivo. O comando acima valida todas as linhas e informa a quantidade de livros sem abrir o banco. Para gravar no `books.db` desta cópia do Backend, acrescente `--aplicar`:
+
+```powershell
+python -m app.importar_catalogo "C:\caminho\livros_limpos.csv" --aplicar
+```
+
+O formato de entrada é CSV separado por vírgula, em UTF-8 com ou sem BOM. `title`, `author`, `description` e `url` são obrigatórios. `year`, `genre` e `book_cover` são opcionais. Anos inteiros exportados como `2024.0` são aceitos, e campos opcionais vazios são gravados como nulos. Quando preenchido, `book_cover` deve ser uma URL HTTP ou HTTPS.
+
+O número em `goodreads.com/book/show/<id>-...` identifica o registro de origem. A tabela `GoodreadsBook` liga esse número ao ID gerado pelo SQLite. Um ID repetido com dados iguais no CSV representa um único livro. Dados divergentes para o mesmo ID interrompem a validação. Ao reaplicar o CSV, o importador só preenche a capa onde ainda estiver ausente em livros já cadastrados. Os IDs e os demais campos desses livros são preservados.
 
 ## 6. Endpoints implementados
 
@@ -87,7 +107,7 @@ Parâmetros opcionais da consulta:
 
 | Parâmetro | Padrão | Valores aceitos | Finalidade |
 |---|---|---|---|
-| `offset` | `0` | Inteiro maior ou igual a zero | Quantidade de livros a pular |
+| `offset` | `0` | Inteiro entre zero e 2⁶³ − 1 | Quantidade de livros a pular |
 | `limit` | `20` | Inteiro entre 1 e 100 | Quantidade máxima de livros a retornar |
 
 Exemplos:
@@ -105,15 +125,28 @@ Parâmetros inválidos, como `offset=-1`, `limit=0` ou `limit=101`, recebem HTTP
 
 **GET /books/{book_id}**
 
-Consulta um livro pela chave primária `id`. O parâmetro `book_id` faz parte do caminho e deve ser um inteiro maior ou igual a 1.
+Consulta um livro pela chave primária `id`. O parâmetro `book_id` faz parte do caminho e deve ser um inteiro entre 1 e 2⁶³ − 1.
 
 Exemplo: `/books/7` procura o livro de ID `7`, independentemente da página em que ele apareça na listagem.
 
-- Livro encontrado: HTTP `200` com um objeto JSON contendo `id`, `titulo`, `autor`, `ano_publicacao`, `genero` e `descricao`.
+- Livro encontrado: HTTP `200` com um objeto JSON contendo `id`, `titulo`, `autor`, `ano_publicacao`, `genero`, `descricao` e `capa_url`. Quando não há capa cadastrada, `capa_url` vale `null`.
 - ID válido, mas inexistente: HTTP `404` com `{"detail": "Livro não encontrado"}`. O mesmo ocorre se o catálogo estiver vazio.
 - ID inválido, como `/books/abc`, `/books/1.5`, `/books/0` ou `/books/-1`: HTTP `422` com detalhes da validação.
 
 A consulta utiliza `session.get(Book, book_id)` para buscar diretamente pela chave primária, sem carregar a lista de livros.
+
+**GET /books/{book_id}/similar**
+
+Retorna uma lista de recomendações ordenadas por similaridade do cosseno. Cada item tem `livro` (com os mesmos campos de `GET /books/{book_id}`) e `similaridade` (número de −1 a 1). O parâmetro `limit` aceita valores de 1 a 20, com padrão de 5. Exemplo: `/books/1/similar?limit=3`.
+
+Coloque `embeddings_livros.npy` e `livros_metadata.csv`, exportados juntos pelo notebook da equipe, em `backend/app/nlp`. O CSV identifica a posição de cada vetor pela coluna `book_id` e o livro pela URL do Goodreads. O Backend cruza o ID Goodreads com o SQLite para devolver os IDs usados pela API.
+
+Os arquivos são carregados e validados na primeira consulta de similares. Reinicie o servidor ao substituir os artefatos. A API responde com:
+
+- HTTP `200` e uma lista de similares, sempre sem o próprio livro. A lista fica vazia se o livro existir mas não tiver vetor ou candidatos no catálogo.
+- HTTP `404` se o livro não existir.
+- HTTP `422` se o ID ou o limite for inválido.
+- HTTP `503` se o livro tiver vínculo no catálogo e os artefatos para recomendar estiverem ausentes ou inválidos.
 
 ## 7. Testes automatizados
 
@@ -125,6 +158,8 @@ Testes existentes:
 
 - `test_health.py`: verifica o endpoint `/health`.
 - `test_books.py`: verifica catálogo vazio, listagem, paginação padrão, uso independente dos parâmetros, páginas ordenadas, limites aceitos e parâmetros inválidos, utilizando um banco SQLite temporário por teste.
+- `test_importar_catalogo.py`: verifica validação do CSV, cadastro e reimportação em SQLite temporário.
+- `test_recomendacoes.py`: verifica o vínculo por Goodreads, a ordem do ranking e as respostas quando faltam livros ou artefatos.
 
 Os testes de livros também cobrem a consulta por ID: primeiro, intermediário e último livro do catálogo de teste, incluindo um livro fora da primeira página; resposta completa; ID inexistente; catálogo vazio; e IDs inválidos.
 
@@ -135,7 +170,7 @@ Os testes não dependem de livros cadastrados no banco local do desenvolvedor.
 - Filtros no catálogo.
 - Importação do dataset definitivo.
 - Integração com o Transformer.
-- Endpoint de recomendações semânticas.
+- Busca semântica por texto.
 - Testes adicionais e hospedagem.
 
 ## 9. Observações
