@@ -1,100 +1,71 @@
-# Front-end: biblioteca de livros parecidos (similaridade do cosseno)
+# Front-end — biblioteca de livros parecidos
 
-Site estático (HTML, CSS e JavaScript puro, sem instalar nada), com tema preto e
-detalhes de biblioteca (amarelo e madeira).
+Site em HTML, CSS e JavaScript puro, com tema preto, amarelo e madeira. Por padrão, carrega o catálogo e as recomendações da API FastAPI do projeto em `http://127.0.0.1:8000`.
 
-- **Tela inicial:** fileiras de livros estilo Netflix ("Mais bem avaliados", "Mais populares" e uma por gênero).
-- **Destaque:** o livro mais bem avaliado aparece em evidência no topo.
-- **"Mais bem avaliados"** só considera livros com avaliações suficientes (ignora os 25% com menos `avaliacoes`), para um livro com nota 5,0 e 3 votos não ficar na frente de livros avaliados por milhões de pessoas.
-- **Busca:** o usuário digita um livro, escolhe nas sugestões e vê o livro com a lista dos mais parecidos e a % de similaridade.
-- **Clicar** em qualquer livro (fileira ou lista) abre a página dele. O botão voltar do navegador funciona e o link `#livro-ID` pode ser compartilhado.
+- A tela inicial mostra um livro em destaque e fileiras por gênero com pelo menos três títulos. Quando não há gêneros com essa quantidade, mostra uma fileira geral.
+- A busca sugere títulos e autores enquanto o usuário digita, com navegação pelo teclado e normalização de acentos.
+- A página do livro mostra sinopse, autor, gênero, ano e capa, conforme os dados disponíveis, e consulta seus similares no Backend.
+- Clicar em um livro da fileira ou dos similares abre seu detalhe. O botão voltar do navegador funciona e o endereço `#livro-ID` permite compartilhar a seleção.
+- Quando a capa está ausente ou falha ao carregar, a interface apresenta o título sobre uma capa colorida.
 
-O front **não calcula a similaridade**: ele só exibe o `score` que o back entrega.
+A busca por título e autor usa os livros carregados no JavaScript. A recomendação usa o cosseno calculado pelo Backend a partir dos embeddings. A porcentagem exibida é o cosseno multiplicado por 100 e arredondado, como medida de proximidade entre vetores. Ela não representa a probabilidade de o usuário gostar do livro.
 
 ## Arquivos
 
-| Arquivo | O que faz |
+| Arquivo | Responsabilidade |
 |---|---|
-| `index.html` | Estrutura da página |
-| `style.css` | Visual (tema preto, responsivo) |
-| `script.js` | Fileiras, busca, página do livro, navegação |
-| `dados.js` | **Vazio.** Aqui entram os dados reais (formato abaixo) |
+| `index.html` | Estrutura da página e carregamento de `estilo.css` e dos scripts |
+| `estilo.css` | Tema e layout responsivo |
+| `script.js` | Requisições, fileiras, busca, detalhe e navegação |
+| `dados.js` | Dados opcionais para o modo estático |
 
-## Como rodar
+## Executar com o Backend
 
-Abra o `index.html` no navegador (dois cliques). Não precisa de servidor. Com o `dados.js` vazio, o site mostra um aviso na tela inicial.
-Para o modo API (abaixo), use um servidor local, por exemplo o Live Server do VS Code.
+Prepare os dados, instale as dependências e inicie a API conforme o [guia do Backend](../backend/README.md). A constante `API_URL`, no início de `script.js`, aponta por padrão para `http://127.0.0.1:8000`.
 
-## Formato dos dados
+Em outro PowerShell, abra a pasta `frontend` e inicie o servidor estático na porta 5173. Se o ambiente do Backend já estiver criado, use o comando abaixo.
+
+```powershell
+& ..\backend\.venv\Scripts\python.exe -m http.server 5173 --bind 127.0.0.1
+```
+
+Também é possível usar o Python instalado no Windows, com `py -m http.server 5173 --bind 127.0.0.1`. Abra [a interface local](http://127.0.0.1:5173).
+
+O Backend permite as origens `http://localhost:5173` e `http://127.0.0.1:5173` por padrão. Caso a equipe utilize outra porta ou endereço, configure `CORS_ORIGINS` no PowerShell do Backend e reinicie a API, conforme o guia. Uma publicação da interface também precisa de um endereço de API acessível aos usuários e permitido nessa configuração.
+
+## Contrato de integração
+
+Na inicialização, `carregarLivros()` percorre `GET /books?offset=0&limit=100` e as páginas seguintes até receber uma página com menos de 100 itens. Isso disponibiliza o catálogo completo para as fileiras e a busca local.
+
+Ao abrir um livro, o detalhe usa o registro já carregado. A interface solicita `GET /books/{id}/similar?limit=10` para receber até dez recomendações. A resposta é uma lista de objetos com `livro`, que contém os dados completos do recomendado, e `similaridade`, com o valor do cosseno. A navegação usa o ID interno devolvido em `livro.id`.
+
+O adaptador de dados lê `capa_url` e `ano_publicacao` da API. Os campos `nota`, quantidade de avaliações, páginas, editora e URL externa são opcionais na interface. A API atual fornece o catálogo por gênero e o detalhe com os campos documentados no Backend. Se uma fonte de dados também fornecer notas e avaliações, a interface pode apresentar as fileiras "Mais bem avaliados" e "Mais populares" e escolher o destaque por nota. Sem esses campos, o destaque usa o primeiro livro do catálogo.
+
+Se a resposta de similares for uma lista vazia, a página informa que não há similares cadastrados para aquele livro. Se a consulta falhar, mantém o detalhe e apresenta uma mensagem de erro na seção de recomendações.
+
+## Modo estático opcional
+
+Para usar somente dados locais, defina `API_URL = ""` e preencha `dados.js` com o objeto abaixo. O arquivo distribuído no repositório começa vazio. Todos os IDs usados em `similares` devem existir em `livros`.
 
 ```js
 const DADOS = {
   livros: [
-    { id: 0, titulo: "The Midnight Library", autor: "Matt Haig", ano: 2020, genero: "Fiction",
-      capa: "https://...", nota: 3.98, avaliacoes: 2528798, paginas: 288, editora: "Viking",
-      descricao: "Between life and death there is a library...", url: "https://www.goodreads.com/book/show/..." }
+    { id: 1, titulo: "Livro A", autor: "Autor A", descricao: "Sinopse A." },
+    { id: 2, titulo: "Livro B", autor: "Autor B", descricao: "Sinopse B." }
   ],
   similares: {
-    0: [ { id: 7, score: 0.91 }, { id: 3, score: 0.62 } ]
+    1: [{ id: 2, score: 0.8 }],
+    2: [{ id: 1, score: 0.8 }]
   }
 };
 ```
 
-- Só `id` e `titulo` são obrigatórios. Os outros campos são opcionais (o que faltar simplesmente não aparece).
-- `score` = similaridade do cosseno de 0 a 1 (também aceita 0 a 100). Guardar os top 10 de cada livro.
-- Todos os ids de `similares` precisam existir em `livros`.
-- `capa` precisa ser um link `https://`. Sem capa (ou com link quebrado), o site desenha uma capa com o título.
-- `genero` com **um** valor por livro (se vier lista, usa o primeiro). Gêneros com menos de 3 livros não viram fileira.
-- `descricao` aparece na página do livro (o front mostra até 600 caracteres, então vale cortar no export para o arquivo não ficar pesado). `url` vira o link "Ver no Goodreads".
-- O front também aceita direto os nomes das colunas do dataset (`title`, `author`, `book_cover`, `avg_rating`, `num_ratings`, `year`, `genre`, `pages`, `publisher`, `description`, `url`). Se `id` faltar, usa a posição do livro.
+Os campos opcionais e os nomes das colunas do dataset, como `title`, `author`, `book_cover` e `year`, também são aceitos pelo adaptador. Para testar esse modo, use o mesmo servidor estático descrito acima.
 
-## Exportar do notebook (pandas) para o `dados.js`
+## Conferir a integração
 
-No fim do notebook de embeddings, onde `df` é o DataFrame limpo e `sim` é a matriz
-de similaridade do cosseno (`cosine_similarity(embeddings)`), na **mesma ordem** das linhas do `df`:
-
-```python
-import json, numpy as np, pandas as pd
-
-TOP = 10
-def v(x): return None if pd.isna(x) else x
-def inteiro(x): return None if pd.isna(x) else int(x)
-def texto(x, n=600): return None if pd.isna(x) else str(x)[:n]
-
-d = df.reset_index(drop=True)
-livros = [{"id": int(i), "titulo": r["title"], "autor": v(r["author"]), "ano": inteiro(r["year"]),
-           "genero": v(r["genre"]), "capa": v(r["book_cover"]), "nota": v(r["avg_rating"]),
-           "avaliacoes": inteiro(r["num_ratings"]), "paginas": inteiro(r["pages"]), "editora": v(r["publisher"]),
-           "descricao": texto(r["description"]), "url": v(r["url"])}
-          for i, r in d.iterrows()]
-
-similares = {}
-for i in range(len(d)):
-    ordem = [j for j in np.argsort(-sim[i]) if j != i][:TOP]
-    similares[i] = [{"id": int(j), "score": round(float(sim[i][j]), 4)} for j in ordem]
-
-with open("dados.js", "w", encoding="utf-8") as f:
-    f.write("const DADOS = " + json.dumps({"livros": livros, "similares": similares}, ensure_ascii=False) + ";")
-```
-
-Depois é só colocar o `dados.js` gerado dentro da pasta `frontend/`, no lugar do vazio. Ao abrir o site, aperte F12 e veja o console: ele avisa se houver livros sem parecidos, ids que não existem ou ids repetidos.
-
-## Se preferirem uma API
-
-Em `script.js`, preencher `API_URL` no topo. A API precisa ter:
-
-- `GET /livros` retornando a mesma lista de `livros` acima
-- `GET /similares/{id}` retornando `[{ "id": 2, "score": 0.91 }]`
-- CORS liberado, senão o navegador bloqueia a chamada.
-
-## Checklist antes da entrega
-
-- [ ] `dados.js` trocado pelos dados reais (ou `API_URL` preenchido)
-- [ ] Buscar 3 livros e conferir se os parecidos fazem sentido
-- [ ] Testar no celular
-- [ ] Site publicado e link funcionando
-
-## Publicar
-
-- **GitHub Pages:** Settings → Pages → escolher a branch e a pasta onde está o `index.html`.
-- **Netlify:** arrastar a pasta no painel do Netlify, ou conectar o repositório.
+- Carregar o catálogo e buscar três livros por título ou autor.
+- Abrir um livro, conferir ano e capa e navegar para um dos similares.
+- No lote validado, conferir *The House in the Cerulean Sea* com *Somewhere Beyond the Sea* como primeiro similar, próximo de 83%.
+- Conferir a busca pelo teclado, o botão voltar e o layout no celular.
+- Verificar a mensagem de indisponibilidade quando o serviço de recomendações falhar.

@@ -1,7 +1,7 @@
 // ===== CONFIGURAÇÃO =====
 // Deixe vazio para usar os dados do arquivo dados.js (modo estático).
-// Quando o colega da nuvem tiver uma API, coloque o endereço aqui. Ex.: "https://minha-api.com"
-const API_URL = "";
+// Endereço do FastAPI. Ajuste este valor quando a API for publicada.
+const API_URL = "http://127.0.0.1:8000";
 
 const app = document.getElementById("app");
 const campo = document.getElementById("campo");
@@ -33,13 +33,13 @@ const inteiro = x => { const n = Math.round(Number(x)); return Number.isFinite(n
 // Aceita os nomes de colunas do dataset (title, book_cover, avg_rating...) e os nomes em português
 function padronizarLivro(l, i) {
   const genero = l.genero ?? l.genre ?? l.genres ?? "";
-  const capa = String(l.capa ?? l.book_cover ?? l.cover ?? l.image_url ?? "");
+  const capa = String(l.capa_url ?? l.capa ?? l.book_cover ?? l.cover ?? l.image_url ?? "");
   const url = String(l.url ?? "");
   return {
     id: l.id ?? l.ID ?? l.index ?? i,
     titulo: l.titulo ?? l.title ?? l.nome ?? l.name ?? "(sem título)",
     autor: l.autor ?? l.author ?? l.autores ?? l.authors ?? "",
-    ano: inteiro(l.ano ?? l.year) ?? "",
+    ano: inteiro(l.ano_publicacao ?? l.ano ?? l.year) ?? "",
     genero: Array.isArray(genero) ? (genero[0] ?? "") : genero,
     capa: /^https?:\/\//.test(capa) ? capa : "",
     nota: Number(l.nota ?? l.avg_rating ?? l.rating) || null,
@@ -53,24 +53,35 @@ function padronizarLivro(l, i) {
 function padronizarSimilar(s) {
   let score = Number(s.score ?? s.similaridade ?? s.similarity ?? 0);
   if (score > 1) score = score / 100;           // aceita 91 em vez de 0.91
-  return { id: s.id ?? s.livro_id ?? s.book_id, score: Math.max(0, Math.min(1, score || 0)) };
+  return { id: s.livro?.id ?? s.id ?? s.livro_id ?? s.book_id, score: Math.max(-1, Math.min(1, score || 0)) };
 }
 
 // ===== CAMADA DE DADOS (única parte que muda entre estático e API) =====
 async function carregarLivros() {
   if (API_URL) {
-    const r = await fetch(`${API_URL}/livros`);          // -> [{id, titulo, autor, ano, genero, capa, nota...}]
-    if (!r.ok) throw new Error(r.status);
-    return r.json();
+    const catalogo = [];
+    const limite = 100;
+    for (let offset = 0; ; offset += limite) {
+      const r = await fetch(`${API_URL}/books?offset=${offset}&limit=${limite}`);
+      if (!r.ok) throw new Error(r.status);
+      const pagina = await r.json();
+      if (!Array.isArray(pagina)) throw new Error("Resposta de catálogo inválida");
+      catalogo.push(...pagina);
+      if (pagina.length < limite) return catalogo;
+    }
   }
   if (typeof DADOS === "undefined") throw new Error("dados.js não carregou");
   return DADOS.livros;
 }
 async function buscarSimilares(id) {
   if (API_URL) {
-    const r = await fetch(`${API_URL}/similares/${encodeURIComponent(id)}`); // -> [{id, score}]
+    const r = await fetch(`${API_URL}/books/${encodeURIComponent(id)}/similar?limit=10`);
     if (!r.ok) throw new Error(r.status);
-    return r.json();
+    const resultados = await r.json();
+    resultados.forEach(item => {
+      if (item.livro) porId[item.livro.id] = padronizarLivro(item.livro, item.livro.id);
+    });
+    return resultados;
   }
   return (DADOS.similares || {})[id] || [];
 }
@@ -137,7 +148,7 @@ function mostrarHome() {
   campo.value = "";
   document.title = TITULO_SITE;
   app.innerHTML = livros.length ? homeHTML
-    : HERO + '<p class="vazio">Nenhum livro carregado ainda. Coloque os dados no arquivo dados.js (formato no README.md) ou preencha API_URL no script.js.</p>';
+    : HERO + '<p class="vazio">Nenhum livro disponível no catálogo.</p>';
   requestAnimationFrame(() => window.scrollTo(0, navegou ? homeScroll : 0));
 }
 
@@ -180,7 +191,7 @@ async function mostrarLivro(id) {
     const pct = Math.round(s.score * 100);
     return `<li><button type="button" class="livro" data-id="${esc(l.id)}" aria-label="${esc(l.titulo)}, ${pct}% parecido. Ver este livro">
       ${capaHTML(l, "mini")}<span class="titulo">${esc(l.titulo)}</span><span class="autor">${esc(info(l))}</span>
-      <span class="anel" style="--p:${pct}"><span class="score">${pct}%</span></span></button></li>`;
+      <span class="anel" style="--p:${Math.max(0, pct)}" title="Similaridade do cosseno"><span class="score">${pct}%</span></span></button></li>`;
   }).join("")}</ol>`;
   anunciar(`${similares.length} livros parecidos com ${livro.titulo}`);
 }
@@ -188,7 +199,9 @@ async function mostrarLivro(id) {
 // ===== NAVEGAÇÃO (o endereço #livro-ID permite voltar e compartilhar o link) =====
 function rota() {
   const m = location.hash.match(/^#livro-(.+)$/);
-  const id = m ? decodeURIComponent(m[1]) : null;
+  let id = null;
+  try { id = m ? decodeURIComponent(m[1]) : null; }
+  catch { mostrarHome(); return; }
   if (id !== null && porId[id]) mostrarLivro(id);
   else mostrarHome();
 }
@@ -276,7 +289,7 @@ async function iniciar() {
     validar();
     rota();
   } catch (e) {
-    app.innerHTML = HERO + '<p class="vazio">Não foi possível carregar a lista de livros. Verifique o dados.js (ou a API) e o console do navegador (F12).</p><button type="button" class="tentar">Tentar de novo</button>';
+    app.innerHTML = HERO + '<p class="vazio">Não foi possível carregar o catálogo. Confira a conexão e tente novamente.</p><button type="button" class="tentar">Tentar de novo</button>';
     app.querySelector(".tentar").addEventListener("click", iniciar);
   }
 }

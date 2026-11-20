@@ -4,7 +4,7 @@
 
 Backend do projeto acadêmico de recomendação semântica de livros, desenvolvido com Python, FastAPI, SQLModel e SQLite.
 
-Este módulo será responsável por disponibilizar os dados dos livros e integrar futuramente o algoritmo de recomendação semântica.
+A API disponibiliza o catálogo e recomenda livros semelhantes com os embeddings gerados previamente pela equipe.
 
 ## 2. Tecnologias
 
@@ -19,19 +19,13 @@ Este módulo será responsável por disponibilizar os dados dos livros e integra
 
 ## 3. Preparação do ambiente
 
-Os comandos devem ser executados no PowerShell, a partir da pasta `backend`.
+No Windows, instale o Python 3.12 e coloque os três arquivos do mesmo lote nos locais indicados no [guia de dados](../Data/README.md). Abra o PowerShell na raiz do repositório e execute os comandos abaixo. Execute os passos seguintes na pasta `backend`.
 
-**Criar o ambiente virtual:**
-
-`py -3.12 -m venv .venv`
-
-**Ativar o ambiente:**
-
-`.\.venv\Scripts\Activate.ps1`
-
-**Instalar dependências:**
-
-`python -m pip install -r requirements.txt`
+```powershell
+Set-Location backend
+py -3.12 -m venv .venv
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
 
 **Selecionar o ambiente no VS Code:**
 
@@ -41,15 +35,39 @@ O Python selecionado pelo editor deve ser o mesmo ambiente em que as dependênci
 
 ## 4. Executar a aplicação
 
-`python -m uvicorn app.main:app --reload`
+Primeiro valide o CSV. Sem `--aplicar`, o comando confere o arquivo e mostra a quantidade de livros sem gravar no SQLite. Depois importe o catálogo e inicie a API.
 
-A API estará disponível em:
+```powershell
+& .\.venv\Scripts\python.exe -m app.importar_catalogo ../Data/livros_limpos.csv
+& .\.venv\Scripts\python.exe -m app.importar_catalogo ../Data/livros_limpos.csv --aplicar
+& .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
 
-`http://127.0.0.1:8000`
+O lote validado mostra 1.795 livros na validação e insere 1.795 livros em um banco novo. A API usa `http://127.0.0.1:8000`. Consulte ou teste as rotas na [documentação interativa](http://127.0.0.1:8000/docs).
 
-Documentação interativa:
+### Conferir a instalação
 
-`http://127.0.0.1:8000/docs`
+Com a API em execução, abra outro PowerShell e consulte o primeiro livro do catálogo e seus similares.
+
+```powershell
+$api = 'http://127.0.0.1:8000'
+Invoke-RestMethod "$api/health"
+$primeiro = (Invoke-RestMethod "$api/books?limit=1")[0]
+Invoke-RestMethod "$api/books/$($primeiro.id)"
+Invoke-RestMethod "$api/books/$($primeiro.id)/similar?limit=3"
+```
+
+Em um banco novo com o lote validado, o detalhe é de *The House in the Cerulean Sea* e o primeiro similar é *Somewhere Beyond the Sea*, com cosseno próximo de `0.835`. Para reproduzir a instalação, repita os passos em uma cópia limpa com os três arquivos conferidos no [guia de dados](../Data/README.md).
+
+### Conectar o frontend
+
+Em desenvolvimento, as origens do frontend permitidas por padrão são `http://localhost:5173` e `http://127.0.0.1:5173`. A API oferece rotas HTTP de leitura por `GET`. Para autorizar outras origens, defina `CORS_ORIGINS` no mesmo PowerShell antes de iniciar a API. Informe origens completas com protocolo, host e porta, separadas por vírgula, sem caminhos ou barras finais.
+
+```powershell
+$env:CORS_ORIGINS = 'http://localhost:5174,http://127.0.0.1:5174'
+```
+
+A variável substitui a lista padrão. Inclua na configuração todas as origens que a equipe vai usar. Reinicie o servidor depois de alterar a variável.
 
 ## 5. Banco de dados
 
@@ -71,25 +89,13 @@ O modelo atual `Book` contém os campos:
 - `descricao`
 - `capa_url`
 
-O modelo poderá ser expandido após a definição do dataset definitivo.
-
 ### Importar o catálogo do Goodreads
-
-O importador recebe o CSV limpo gerado pelo notebook da equipe. A partir da pasta `backend`, valide o arquivo com:
-
-```powershell
-python -m app.importar_catalogo "C:\caminho\livros_limpos.csv"
-```
-
-Use o caminho real do arquivo. O comando acima valida todas as linhas e informa a quantidade de livros sem abrir o banco. Para gravar no `books.db` desta cópia do Backend, acrescente `--aplicar`:
-
-```powershell
-python -m app.importar_catalogo "C:\caminho\livros_limpos.csv" --aplicar
-```
 
 O formato de entrada é CSV separado por vírgula, em UTF-8 com ou sem BOM. `title`, `author`, `description` e `url` são obrigatórios. `year`, `genre` e `book_cover` são opcionais. Anos inteiros exportados como `2024.0` são aceitos, e campos opcionais vazios são gravados como nulos. Quando preenchido, `book_cover` deve ser uma URL HTTP ou HTTPS.
 
 O número em `goodreads.com/book/show/<id>-...` identifica o registro de origem. A tabela `GoodreadsBook` liga esse número ao ID gerado pelo SQLite. Um ID repetido com dados iguais no CSV representa um único livro. Dados divergentes para o mesmo ID interrompem a validação. Ao reaplicar o CSV, o importador só preenche a capa onde ainda estiver ausente em livros já cadastrados. Os IDs e os demais campos desses livros são preservados.
+
+Para testar outro lote completo, use uma cópia separada do repositório com um `backend/books.db` novo. A reimportação é incremental e mantém os livros já cadastrados, inclusive os ausentes do novo CSV.
 
 ## 6. Endpoints implementados
 
@@ -148,11 +154,13 @@ Os arquivos são carregados e validados na primeira consulta de similares. Reini
 - HTTP `422` se o ID ou o limite for inválido.
 - HTTP `503` se o livro tiver vínculo no catálogo e os artefatos para recomendar estiverem ausentes ou inválidos.
 
+O frontend pode usar `GET /books?offset=0&limit=20` no catálogo e `GET /books/{id}` ao abrir um livro. Na mesma página, consulte `GET /books/{id}/similar` para obter os cards de recomendação. Use `livro.id` para abrir um card e preserve a ordem da resposta. Uma lista vazia indica que não há similares para exibir. Em caso de `503`, mantenha o detalhe do livro visível e apresente a indisponibilidade da recomendação. `capa_url` pode ser `null`.
+
 ## 7. Testes automatizados
 
 Executar na pasta `backend`:
 
-`python -m pytest -v`
+`& .\.venv\Scripts\python.exe -m pytest -v`
 
 Testes existentes:
 
@@ -160,6 +168,7 @@ Testes existentes:
 - `test_books.py`: verifica catálogo vazio, listagem, paginação padrão, uso independente dos parâmetros, páginas ordenadas, limites aceitos e parâmetros inválidos, utilizando um banco SQLite temporário por teste.
 - `test_importar_catalogo.py`: verifica validação do CSV, cadastro e reimportação em SQLite temporário.
 - `test_recomendacoes.py`: verifica o vínculo por Goodreads, a ordem do ranking e as respostas quando faltam livros ou artefatos.
+- `test_cors.py`: verifica as origens padrão, a configuração por variável e as regras para origens diferentes.
 
 Os testes de livros também cobrem a consulta por ID: primeiro, intermediário e último livro do catálogo de teste, incluindo um livro fora da primeira página; resposta completa; ID inexistente; catálogo vazio; e IDs inválidos.
 
@@ -168,8 +177,7 @@ Os testes não dependem de livros cadastrados no banco local do desenvolvedor.
 ## 8. Funcionalidades futuras
 
 - Filtros no catálogo.
-- Importação do dataset definitivo.
-- Integração com o Transformer.
+- Validação do fluxo completo com a interface.
 - Busca semântica por texto.
 - Testes adicionais e hospedagem.
 
