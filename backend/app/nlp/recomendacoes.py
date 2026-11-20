@@ -1,6 +1,7 @@
 import csv
 from dataclasses import dataclass
 from functools import lru_cache
+from os import getenv
 from pathlib import Path
 from zipfile import BadZipFile
 
@@ -9,7 +10,9 @@ import numpy as np
 from app.goodreads import id_goodreads
 
 
-PASTA_ARTEFATOS = Path(__file__).resolve().parent
+PASTA_ARTEFATOS = Path(
+    getenv("NLP_ARTIFACTS_DIR") or Path(__file__).resolve().parent
+).expanduser().resolve()
 
 
 class ArtefatosIndisponiveis(Exception):

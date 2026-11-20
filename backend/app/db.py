@@ -1,4 +1,4 @@
-
+from os import getenv
 from pathlib import Path
 
 from sqlalchemy import Connection, event, inspect
@@ -9,13 +9,20 @@ from app import models
 
 # Localização do banco
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "books.db"
+DB_PATH = Path(getenv("BOOKS_DB_PATH") or BASE_DIR / "books.db").expanduser().resolve()
 SQLITE_MAX_INTEGER = 2**63 - 1
 
 # Configuração do SQLite
 sqlite_url = f"sqlite:///{DB_PATH.as_posix()}"
 
-engine = create_engine(sqlite_url, echo=True)
+sql_echo = getenv("SQL_ECHO", "").strip().lower() in {"1", "true", "yes", "on"}
+engine = create_engine(sqlite_url, echo=sql_echo)
+
+
+@event.listens_for(engine, "do_connect")
+def preparar_pasta_banco(_dialeto, _registro, _argumentos, _parametros):
+    # API e importador criam a pasta somente quando vão abrir o banco.
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 @event.listens_for(engine, "connect")

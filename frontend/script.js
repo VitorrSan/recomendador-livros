@@ -1,7 +1,6 @@
 // ===== CONFIGURAÇÃO =====
-// Deixe vazio para usar os dados do arquivo dados.js (modo estático).
-// Endereço do FastAPI. Ajuste este valor quando a API for publicada.
-const API_URL = "http://127.0.0.1:8000";
+// O endereço da API é definido em config.js; o padrão permite executar localmente.
+const API_URL = (globalThis.CONFIGURACAO?.API_URL ?? "http://127.0.0.1:8000").trim().replace(/\/+$/, "");
 
 const app = document.getElementById("app");
 const campo = document.getElementById("campo");
@@ -10,7 +9,7 @@ const aviso = document.getElementById("aviso");   // anuncia mudanças para leit
 const TITULO_SITE = document.title;
 
 let livros = [];
-let porId = {};
+let porId = Object.create(null);
 let homeHTML = "";
 const OPCOES = "[role=option]:not([aria-disabled=true])";
 let ativo = -1;        // item destacado nas sugestões (setas do teclado)
@@ -87,8 +86,8 @@ async function buscarSimilares(id) {
 }
 
 // ===== PEÇAS VISUAIS =====
-const HERO = `<section class="hero"><h1>Pesquise livros usando a similaridade do cosseno</h1>
-    <p>Digite o título de um livro e descubra quais outros são mais parecidos.</p></section>`;
+const HERO = `<section class="hero"><span class="selo">Histórias que se conectam</span><h1>Encontre sua próxima leitura</h1>
+    <p>Explore o catálogo, busque por título ou autor e descubra novas leituras com sinopses semelhantes.</p></section>`;
 function capaHTML(l, extra = "") {
   const img = l.capa ? `<img src="${esc(l.capa)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "";
   return `<span class="capa ${extra}" style="--c:${corDe(l.titulo)}"><span class="cap-tit">${esc(l.titulo)}</span>${img}</span>`;
@@ -109,7 +108,7 @@ function destaqueHTML(l, porNota) {
     <div class="dest-info"><span class="selo">${porNota ? "★ Mais bem avaliado" : "Em destaque"}</span><h2>${esc(l.titulo)}</h2>
     <p class="meta">${meta}${l.genero ? ` <span class="pill">${esc(l.genero)}</span>` : ""}</p>
     ${l.descricao ? `<p class="desc">${esc(String(l.descricao).slice(0, 240))}</p>` : ""}
-    <button type="button" class="botao" data-id="${esc(l.id)}">Ver parecidos →</button></div></section>`;
+    <button type="button" class="botao" data-id="${esc(l.id)}">Ver recomendações →</button></div></section>`;
 }
 
 // ===== TELA INICIAL (destaque + fileiras por categoria) =====
@@ -157,19 +156,19 @@ async function mostrarLivro(id) {
   const livro = porId[id];
   const meu = ++pedido;
   campo.value = livro.titulo;
-  document.title = `${livro.titulo} · Biblioteca`;
+  document.title = `${livro.titulo} | ${TITULO_SITE}`;
   const meta = [livro.autor, livro.ano].filter(Boolean).map(esc).join(" · ");
   const meta2 = [
     livro.nota ? `★ ${fmtNota(livro.nota)}${livro.avaliacoes ? ` (${livro.avaliacoes.toLocaleString("pt-BR")} avaliações)` : ""}` : "",
     livro.paginas ? `${livro.paginas} páginas` : "", esc(livro.editora)
   ].filter(Boolean).join(" · ");
-  app.innerHTML = `<button type="button" class="voltar">← Voltar</button>
+  app.innerHTML = `<button type="button" class="voltar">← Voltar à página anterior</button>
     <section class="detalhe" style="--c:${corDe(livro.titulo)}">${capaHTML(livro, "grande")}
       <div class="info"><h1>${esc(livro.titulo)}</h1>
       <p class="meta">${meta}${livro.genero ? ` <span class="pill">${esc(livro.genero)}</span>` : ""}</p>${meta2 ? `<p class="meta2">${meta2}</p>` : ""}
       ${livro.descricao ? `<p class="desc">${esc(String(livro.descricao).slice(0, 600))}</p>` : ""}
       ${livro.url ? `<p class="meta2"><a class="link" href="${esc(livro.url)}" target="_blank" rel="noopener">${/goodreads\.com/.test(livro.url) ? "Ver no Goodreads" : "Ver mais"} ↗</a></p>` : ""}</div></section>
-    <div id="similares"><p class="vazio">Buscando livros parecidos...</p></div>`;
+    <div id="similares"><p class="vazio">Preparando suas recomendações...</p></div>`;
   window.scrollTo(0, 0);
   if (navegou) { const h = app.querySelector("h1"); h.tabIndex = -1; h.focus({ preventScroll: true }); } // leitor de tela começa no título
   const alvo = document.getElementById("similares");
@@ -180,20 +179,20 @@ async function mostrarLivro(id) {
       .filter(s => porId[s.id] && String(s.id) !== String(id))
       .sort((a, b) => b.score - a.score);
   } catch (e) {
-    if (meu === pedido) alvo.innerHTML = '<p class="vazio">Não foi possível buscar os livros parecidos. Verifique a conexão e tente de novo.</p>';
+    if (meu === pedido) alvo.innerHTML = '<p class="vazio">Não foi possível carregar as recomendações. Verifique a conexão e tente novamente.</p>';
     return;
   }
   if (meu !== pedido) return; // chegou uma escolha mais nova enquanto esperava
-  if (!similares.length) { alvo.innerHTML = '<p class="vazio">Ainda não há livros parecidos cadastrados para este livro.</p>'; return; }
+  if (!similares.length) { alvo.innerHTML = '<p class="vazio">Ainda não há recomendações disponíveis para este título.</p>'; return; }
 
-  alvo.innerHTML = `<h2 class="sub">Livros mais parecidos</h2><ol>${similares.map(s => {
+  alvo.innerHTML = `<h2 class="sub">Leituras relacionadas</h2><p class="meta2">O índice de similaridade compara as sinopses: quanto maior, mais próximo é o conteúdo.</p><ol>${similares.map(s => {
     const l = porId[s.id];
     const pct = Math.round(s.score * 100);
-    return `<li><button type="button" class="livro" data-id="${esc(l.id)}" aria-label="${esc(l.titulo)}, ${pct}% parecido. Ver este livro">
+    return `<li><button type="button" class="livro" data-id="${esc(l.id)}" aria-label="${esc(l.titulo)}, ${pct}% de similaridade entre sinopses. Ver este livro">
       ${capaHTML(l, "mini")}<span class="titulo">${esc(l.titulo)}</span><span class="autor">${esc(info(l))}</span>
-      <span class="anel" style="--p:${Math.max(0, pct)}" title="Similaridade do cosseno"><span class="score">${pct}%</span></span></button></li>`;
+      <span class="anel" style="--p:${Math.max(0, pct)}" title="Similaridade entre sinopses"><span class="score">${pct}%</span></span></button></li>`;
   }).join("")}</ol>`;
-  anunciar(`${similares.length} livros parecidos com ${livro.titulo}`);
+  anunciar(`${similares.length} ${similares.length === 1 ? "recomendação" : "recomendações"} para ${livro.titulo}`);
 }
 
 // ===== NAVEGAÇÃO (o endereço #livro-ID permite voltar e compartilhar o link) =====
@@ -202,7 +201,7 @@ function rota() {
   let id = null;
   try { id = m ? decodeURIComponent(m[1]) : null; }
   catch { mostrarHome(); return; }
-  if (id !== null && porId[id]) mostrarLivro(id);
+  if (id !== null && Object.hasOwn(porId, id)) mostrarLivro(id);
   else mostrarHome();
 }
 function escolher(id) {
@@ -257,7 +256,7 @@ function sugerir() {
   });
   lista.hidden = false;
   campo.setAttribute("aria-expanded", "true");
-  anunciar(achados.length ? `${achados.length} sugestões` : "Nenhum livro encontrado");
+  anunciar(achados.length ? `${achados.length} ${achados.length === 1 ? "sugestão" : "sugestões"}` : "Nenhum livro encontrado");
 }
 
 // ===== VALIDAÇÃO (aparece no console do navegador, F12) =====
@@ -289,7 +288,7 @@ async function iniciar() {
     validar();
     rota();
   } catch (e) {
-    app.innerHTML = HERO + '<p class="vazio">Não foi possível carregar o catálogo. Confira a conexão e tente novamente.</p><button type="button" class="tentar">Tentar de novo</button>';
+    app.innerHTML = HERO + '<p class="vazio">Não foi possível carregar o catálogo. Verifique a conexão e tente novamente.</p><button type="button" class="tentar">Tentar novamente</button>';
     app.querySelector(".tentar").addEventListener("click", iniciar);
   }
 }
