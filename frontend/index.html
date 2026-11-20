@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Biblioteca: livros parecidos</title>
+  <meta name="theme-color" content="#0b0b0c">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Pesquise livros usando a similaridade do cosseno e descubra quais são os mais parecidos.">
+  <meta property="og:title" content="Biblioteca: livros parecidos">
+  <meta property="og:description" content="Pesquise livros usando a similaridade do cosseno.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <a class="logo" href="#" aria-label="Início">📚 <span>Biblioteca</span></a>
+    <div class="busca">
+      <label for="campo" class="so-leitor">Buscar livro por título ou autor</label>
+      <input id="campo" type="search" placeholder="Digite um livro..." autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" role="combobox" aria-expanded="false" aria-controls="sugestoes" aria-autocomplete="list">
+      <ul id="sugestoes" role="listbox" aria-label="Sugestões de livros" hidden></ul>
+    </div>
+  </header>
+
+  <div id="aviso" class="so-leitor" role="status" aria-live="polite"></div>
+
+  <main id="app">
+    <div class="esqueleto" aria-hidden="true"><div class="sk-hero"></div>
+      <div class="sk-fila"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    <p class="so-leitor">Carregando livros...</p>
+  </main>
+
+  <footer>Trabalho P2 — similaridade do cosseno</footer>
+
+  <noscript><p class="vazio" style="text-align:center">Ative o JavaScript para usar o site.</p></noscript>
+  <script src="dados.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
