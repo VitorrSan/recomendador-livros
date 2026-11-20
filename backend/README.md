@@ -216,7 +216,7 @@ Aplique as configurações e aguarde o serviço iniciar. O volume está disponí
 
 CSV, banco e embeddings continuam fora do commit. O deploy pelo GitHub não envia esses arquivos. Confira primeiro os três arquivos e seus hashes no [guia de dados](../Data/README.md).
 
-Para transferi-los, instale a ferramenta de terminal do Railway seguindo o [guia oficial da CLI](https://docs.railway.com/cli). No PowerShell, a partir da raiz do repositório, entre na conta e selecione o projeto, o ambiente e o serviço da API:
+Para transferi-los, instale a ferramenta de terminal do Railway seguindo o [guia oficial da CLI](https://docs.railway.com/cli). O procedimento desta publicação foi validado com Railway CLI `5.75.0` e o cliente OpenSSH `9.5` do Windows. No PowerShell, a partir da raiz do repositório, entre na conta e selecione o projeto existente, o ambiente e o serviço da API:
 
 ```powershell
 railway login
@@ -224,30 +224,60 @@ railway link
 railway status
 ```
 
-Confira o destino exibido por `railway status` antes de continuar. Use o volume montado em `/data` quando a ferramenta pedir a seleção. Os comandos abaixo copiam cada arquivo local para o caminho remoto indicado:
+Confira o destino exibido por `railway status` antes de continuar. Não é necessário criar outro projeto. Para identificar a chave SSH dedicada e o destino das cópias, defina:
 
 ```powershell
-railway volume files upload .\Data\livros_limpos.csv /data/livros_limpos.csv
-railway volume files upload .\backend\app\nlp\livros_metadata.csv /data/nlp/livros_metadata.csv
-railway volume files upload .\backend\app\nlp\embeddings_livros.npy /data/nlp/embeddings_livros.npy
+$chaveRailway = Join-Path $env:USERPROFILE '.ssh\id_ed25519_entre_livros'
+$destinoRailway = 'recomendador-livros-production.up.railway.app@ssh.railway.com'
 ```
 
-O formato é `railway volume files upload LOCAL REMOTO`, conforme a [referência de arquivos do volume](https://docs.railway.com/cli/volume). Esses comandos servem ao primeiro envio. Se o destino já existir, confira o lote antes de decidir substituí-lo.
+A chave fica na pasta pessoal `.ssh`, fora do repositório. Se ela ainda não existir, execute o bloco abaixo em um terminal interativo. A verificação interrompe o comando caso encontre algum dos arquivos, evitando sobrescrever uma chave existente. O `ssh-keygen` perguntará sobre a senha de proteção da chave.
+
+```powershell
+if ((Test-Path -LiteralPath $chaveRailway) -or (Test-Path -LiteralPath "${chaveRailway}.pub")) {
+    throw 'A chave ou sua parte pública já existe. Confira os arquivos sem sobrescrevê-los.'
+}
+New-Item -ItemType Directory -Path (Split-Path -Parent $chaveRailway) -Force | Out-Null
+ssh-keygen -t ed25519 -f $chaveRailway -C 'EntreLivros-publicacao'
+```
+
+Se a chave já existe, pule a geração. O arquivo sem extensão é a chave privada: não deve ser compartilhado, copiado para o projeto ou incluído em commit. Cadastre **somente a chave pública**, terminada em `.pub`, na conta autenticada do Railway:
+
+```powershell
+railway ssh keys add --key "${chaveRailway}.pub" --name EntreLivros-publicacao
+```
+
+Nesta publicação, o transporte SFTP embutido de `railway volume files` ficou sem responder e terminou por timeout, enquanto o OpenSSH nativo funcionou. Por isso, o caminho validado usa `railway ssh` com a chave explícita para criar a pasta e `scp` para enviar os arquivos ao volume:
+
+```powershell
+railway ssh -i $chaveRailway -- mkdir -p /data/nlp
+scp -i $chaveRailway .\Data\livros_limpos.csv "${destinoRailway}:/data/livros_limpos.csv"
+scp -i $chaveRailway .\backend\app\nlp\livros_metadata.csv "${destinoRailway}:/data/nlp/livros_metadata.csv"
+scp -i $chaveRailway .\backend\app\nlp\embeddings_livros.npy "${destinoRailway}:/data/nlp/embeddings_livros.npy"
+```
+
+O domínio do serviço é o usuário da conexão em `ssh.railway.com`, conforme a [orientação oficial de transferência com SCP e SFTP](https://docs.railway.com/cli/ssh#copy-files-with-scp-and-sftp). O OpenSSH `9.5` usa SFTP por padrão no comando `scp`. Os comandos são destinados ao primeiro envio; se os destinos já existirem, confira o lote antes de decidir substituí-los.
+
+Depois da cópia, obtenha os hashes dos arquivos remotos e compare-os com o [guia de dados](../Data/README.md). O comando abaixo apenas lê os arquivos do volume:
+
+```powershell
+railway ssh -i $chaveRailway -- sha256sum /data/livros_limpos.csv /data/nlp/livros_metadata.csv /data/nlp/embeddings_livros.npy
+```
 
 ### 8.4. Importar no servidor e conferir a API
 
 O próximo comando executa o importador dentro do serviço remoto, usando o CSV e o banco do volume:
 
 ```powershell
-railway ssh -- python -m app.importar_catalogo /data/livros_limpos.csv --aplicar
+railway ssh -i $chaveRailway -- python -m app.importar_catalogo /data/livros_limpos.csv --aplicar
 ```
 
 A [referência de SSH](https://docs.railway.com/cli/ssh) explica a execução remota de comandos. Se o painel oferecer um console com shell dentro do serviço, também é possível executar nele `python -m app.importar_catalogo /data/livros_limpos.csv --aplicar`. Não substitua SSH por `railway run`: este último executa o programa no seu computador com as variáveis do Railway, sem acessar o volume remoto.
 
-Em um banco novo, o lote validado deve inserir 1.795 livros. Reinicie o serviço ao substituir os artefatos, pois os vetores ficam em memória depois da primeira consulta. Para conferir o resultado no PowerShell local, substitua o domínio abaixo pelo endereço HTTPS real da API:
+Em um banco novo, o lote validado insere 1.795 livros. A publicação atual disponibiliza esse catálogo em [recomendador-livros-production.up.railway.app](https://recomendador-livros-production.up.railway.app/docs). Reinicie o serviço ao substituir os artefatos, pois os vetores ficam em memória depois da primeira consulta. Para conferir o resultado no PowerShell local:
 
 ```powershell
-$api = 'https://SEU-DOMINIO.up.railway.app'
+$api = 'https://recomendador-livros-production.up.railway.app'
 Invoke-RestMethod "$api/health"
 $livros = Invoke-RestMethod "$api/books?limit=1"
 if ($livros.Count -eq 0) { throw 'O catálogo remoto está vazio. Confira a importação e BOOKS_DB_PATH.' }
@@ -256,18 +286,19 @@ Invoke-RestMethod "$api/books/$($primeiro.id)"
 Invoke-RestMethod "$api/books/$($primeiro.id)/similar?limit=3"
 ```
 
-`/health` confirma que a aplicação responde, mas não comprova que o catálogo foi importado ou que os embeddings estão disponíveis. Confira também o livro retornado e seus similares. No lote validado em banco novo, *The House in the Cerulean Sea* deve recomendar *Somewhere Beyond the Sea* em primeiro lugar, com cosseno próximo de `0.835`.
+`/health` confirma que a aplicação responde, mas não comprova que o catálogo foi importado ou que os embeddings estão disponíveis. Confira também o livro retornado e seus similares. No lote publicado, *The House in the Cerulean Sea* recomenda *Somewhere Beyond the Sea* em primeiro lugar, com cosseno próximo de `0.834961`, equivalente a aproximadamente `83,496%` de proximidade entre vetores. Esse valor não é a probabilidade de o usuário gostar do livro.
 
-Por fim, configure no frontend o endereço-base da API com o domínio HTTPS do Railway e teste catálogo, detalhe e recomendações no navegador. A origem da página deve estar incluída em `CORS_ORIGINS`.
+A persistência foi validada após um novo deploy: a API pública manteve os 1.795 livros e o mesmo ranking de recomendações, usando o banco e os artefatos no volume `/data`.
+
+A API está online; o frontend continua sendo executado localmente. Para conectá-lo, configure `API_URL` em `frontend/config.js` com o domínio HTTPS do Railway e teste catálogo, detalhe e recomendações no navegador. A origem da página deve estar incluída em `CORS_ORIGINS`.
 
 ## 9. Funcionalidades futuras
 
 - Filtros no catálogo.
 - Busca semântica por texto.
-- Validação da API publicada e da persistência após um novo deploy.
 - Avaliação da relevância das recomendações com a equipe.
 
-A integração local entre catálogo, detalhe e similares já foi validada com a interface. A publicação exige repetir essa conferência usando o domínio remoto e os dados do volume.
+A integração local entre catálogo, detalhe e similares já foi validada com a interface. Nas próximas publicações, repita a conferência usando o domínio remoto e os dados do volume.
 
 ## 10. Observações
 
