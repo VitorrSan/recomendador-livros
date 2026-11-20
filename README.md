@@ -111,7 +111,7 @@ Funcionalidades previstas:
 | Processamento numérico | NumPy / PyTorch |
 | Testes | pytest e clientes HTTP |
 | Versionamento | Git e GitHub |
-| Hospedagem da API | Railway, em configuração |
+| Hospedagem da API | Railway, com SQLite e vetores em volume persistente |
 
 As tecnologias são escolhas iniciais e poderão ser ajustadas conforme as necessidades de integração e hospedagem.
 
@@ -278,15 +278,15 @@ Todos os integrantes deverão compreender o funcionamento geral da aplicação p
 - Recomendação por similaridade do cosseno a partir dos embeddings exportados.
 - Testes automatizados do catálogo, do importador e da recomendação.
 - Interface responsiva com busca, catálogo, detalhes e recomendações integrados à API.
+- API publicada no Railway com 1.795 livros e recomendações, preservados após um novo deploy.
 
 O catálogo e as recomendações foram integrados à `main` no [PR #4](https://github.com/VitorrSan/recomendador-livros/pull/4). A integração da interface foi concluída no [PR #5](https://github.com/VitorrSan/recomendador-livros/pull/5). Os guias de execução estão nas pastas [backend](backend/README.md) e [frontend](frontend/README.md).
 
 ### Funcionalidades pendentes
 
-- Provisionamento do lote validado em armazenamento persistente no Railway.
-- Conexão da interface à API publicada após importar o catálogo remoto.
+- Publicação da interface em um endereço acessível ao grupo.
 - Avaliação da relevância do ranking e testes do fluxo completo.
-- Hospedagem e validação da aplicação publicada.
+- Validação da aplicação completa após a publicação da interface.
 
 ### Funcionalidades adicionais planejadas
 
@@ -330,13 +330,15 @@ Implementação da busca semântica por texto e, conforme a viabilidade, persona
 
 Testes funcionais e de integração, avaliação das recomendações, publicação da aplicação e preparação para arguição.
 
-**Situação:** planejada.
+**Situação:** API publicada e persistência validada. Hospedagem da interface e preparação da apresentação em andamento.
 
 ## 12. Execução Local do Backend
 
 Com Python 3.12 instalado, coloque os [arquivos do lote](Data/README.md) nos caminhos indicados. Siga a [execução local do Backend](backend/README.md#3-preparação-do-ambiente) para instalar as dependências, validar o CSV, importar o catálogo e iniciar o servidor no PowerShell.
 
 Depois da inicialização, abra [a documentação interativa da API](http://127.0.0.1:8000/docs) para testar o catálogo e as recomendações.
+
+A API também está disponível na [documentação pública](https://recomendador-livros-production.up.railway.app/docs). Para usar essa API pela interface local, siga o [guia do Frontend](frontend/README.md).
 
 ## 13. Versionamento e Colaboração
 

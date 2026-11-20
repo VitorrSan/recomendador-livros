@@ -1,6 +1,6 @@
 # EntreLivros — Frontend
 
-Site em HTML, CSS e JavaScript puro, com tema preto, amarelo e madeira. Por padrão, carrega o catálogo e as recomendações da API FastAPI do projeto em `http://127.0.0.1:8000`.
+Site em HTML, CSS e JavaScript puro, com tema preto, amarelo e madeira. Por padrão, carrega o catálogo e as recomendações da API FastAPI publicada em `https://recomendador-livros-production.up.railway.app`. A interface é servida localmente enquanto a hospedagem do frontend não é definida pela equipe.
 
 - A tela inicial mostra um livro em destaque e fileiras por gênero com pelo menos três títulos. Quando não há gêneros com essa quantidade, mostra uma fileira geral.
 - A busca sugere títulos e autores enquanto o usuário digita, com navegação pelo teclado e normalização de acentos.
@@ -20,11 +20,11 @@ A busca por título e autor usa os livros carregados no JavaScript. A recomenda�
 | `config.js` | Endereço da API para desenvolvimento ou publicação |
 | `dados.js` | Dados opcionais para o modo estático |
 
-## Executar com o Backend
+## Abrir a interface local com a API online
 
-Prepare os dados, instale as dependências e inicie a API conforme o [guia do Backend](../backend/README.md). A propriedade `API_URL`, em `config.js`, aponta por padrão para `http://127.0.0.1:8000`.
+Com `API_URL` apontando para o Railway em `config.js`, não é necessário iniciar o Backend no seu computador. Os livros e as recomendações vêm da API pública.
 
-Em outro PowerShell, abra a pasta `frontend` e inicie o servidor estático na porta 5173. Se o ambiente do Backend já estiver criado, use o comando abaixo.
+No PowerShell, abra a pasta `frontend` e inicie o servidor estático na porta 5173. Se o ambiente Python do Backend já estiver criado, use o comando abaixo.
 
 ```powershell
 & ..\backend\.venv\Scripts\python.exe -m http.server 5173 --bind 127.0.0.1
@@ -32,13 +32,17 @@ Em outro PowerShell, abra a pasta `frontend` e inicie o servidor estático na po
 
 Também é possível usar o Python instalado no Windows, com `py -m http.server 5173 --bind 127.0.0.1`. Abra [a interface local](http://127.0.0.1:5173).
 
-O Backend permite as origens `http://localhost:5173` e `http://127.0.0.1:5173` por padrão. Caso a equipe utilize outra porta ou endereço, configure `CORS_ORIGINS` no PowerShell do Backend e reinicie a API, conforme o guia. Uma publicação da interface também precisa de um endereço de API acessível aos usuários e permitido nessa configuração.
+O Backend permite as origens `http://localhost:5173` e `http://127.0.0.1:5173`. Caso a equipe utilize outra porta ou endereço, configure `CORS_ORIGINS` onde a API executa: em **Variables** no Railway ou no PowerShell do Backend local. Reinicie a API após a alteração, conforme o guia. Uma publicação da interface também precisa de uma origem permitida nessa configuração.
+
+## Desenvolver com a API local
+
+Altere `API_URL` em `config.js` para `http://127.0.0.1:8000` e inicie a API conforme o [guia do Backend](../backend/README.md). A mesma interface passa a consultar os dados do seu computador. Use essa opção para testar mudanças no Backend antes de publicá-las.
 
 ## Usar a API no Railway
 
-Primeiro conclua a configuração do volume e a importação do catálogo seguindo a seção de Railway no [guia do Backend](../backend/README.md). O sucesso de `/health` confirma que o processo responde; confira também um livro e suas recomendações antes de conectar a interface.
+O lote de 1.795 livros e seus vetores já foram provisionados no volume persistente do Railway. Catálogo, detalhes e similares foram conferidos pelo endereço público, inclusive após um novo deploy. O sucesso de `/health` confirma que o processo responde; confira também um livro e suas recomendações ao preparar outro ambiente.
 
-Depois, altere somente `API_URL` em `config.js` para `https://recomendador-livros-production.up.railway.app`. Esse arquivo é público e não deve conter senhas ou tokens. O restante do JavaScript usa o endereço configurado para consultar o catálogo e os similares.
+O endereço da API fica em `config.js`. Esse arquivo é público e não deve conter senhas ou tokens. O restante do JavaScript usa o endereço configurado para consultar o catálogo e os similares. Para reproduzir a publicação, siga a seção de Railway no [guia do Backend](../backend/README.md).
 
 Enquanto a interface estiver apenas no computador, mantenha as duas origens locais da porta 5173 no `CORS_ORIGINS` do Railway. Quando publicar o site, acrescente também sua origem HTTPS exata. O endereço da API e a origem do frontend têm funções diferentes: o primeiro é o destino das consultas; a segunda identifica o site autorizado a fazê-las pelo navegador.
 
