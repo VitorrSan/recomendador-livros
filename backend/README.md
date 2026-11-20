@@ -73,7 +73,7 @@ A variável substitui a lista padrão. Inclua na configuração todas as origens
 
 O banco utilizado nesta fase é SQLite.
 
-O arquivo `books.db` é local e não deve ser versionado no GitHub.
+O arquivo `books.db` é local e não deve ser versionado no GitHub. Por padrão, fica na pasta `backend`. A variável `BOOKS_DB_PATH` permite escolher outro caminho, como `/data/books.db` em um volume do Railway. A API e o importador usam a mesma configuração.
 
 Durante a inicialização da aplicação, a função `create_db_and_tables()` é chamada pelo mecanismo `lifespan` do FastAPI, criando as tabelas ausentes.
 
@@ -145,7 +145,7 @@ A consulta utiliza `session.get(Book, book_id)` para buscar diretamente pela cha
 
 Retorna uma lista de recomendações ordenadas por similaridade do cosseno. Cada item tem `livro` (com os mesmos campos de `GET /books/{book_id}`) e `similaridade` (número de −1 a 1). O parâmetro `limit` aceita valores de 1 a 20, com padrão de 5. Exemplo: `/books/1/similar?limit=3`.
 
-Coloque `embeddings_livros.npy` e `livros_metadata.csv`, exportados juntos pelo notebook da equipe, em `backend/app/nlp`. O CSV identifica a posição de cada vetor pela coluna `book_id` e o livro pela URL do Goodreads. O Backend cruza o ID Goodreads com o SQLite para devolver os IDs usados pela API.
+Coloque `embeddings_livros.npy` e `livros_metadata.csv`, exportados juntos pelo notebook da equipe, em `backend/app/nlp`. Para usar outro diretório, configure `NLP_ARTIFACTS_DIR`. O CSV identifica a posição de cada vetor pela coluna `book_id` e o livro pela URL do Goodreads. O Backend cruza o ID Goodreads com o SQLite para devolver os IDs usados pela API.
 
 Os arquivos são carregados e validados na primeira consulta de similares. Reinicie o servidor ao substituir os artefatos. A API responde com:
 
@@ -169,19 +169,107 @@ Testes existentes:
 - `test_importar_catalogo.py`: verifica validação do CSV, cadastro e reimportação em SQLite temporário.
 - `test_recomendacoes.py`: verifica o vínculo por Goodreads, a ordem do ranking e as respostas quando faltam livros ou artefatos.
 - `test_cors.py`: verifica as origens padrão, a configuração por variável e as regras para origens diferentes.
+- `test_configuracao.py`: verifica caminhos externos, inicialização da API, persistência após reinício, importação no banco configurado e controle dos logs SQL.
 
 Os testes de livros também cobrem a consulta por ID: primeiro, intermediário e último livro do catálogo de teste, incluindo um livro fora da primeira página; resposta completa; ID inexistente; catálogo vazio; e IDs inválidos.
 
 Os testes não dependem de livros cadastrados no banco local do desenvolvedor.
 
-## 8. Funcionalidades futuras
+## 8. Publicar a API no Railway
+
+O Railway executa uma cópia do Backend em um servidor. O endereço público dessa API permite que o frontend consulte os livros sem depender do computador de um integrante. Código, dados e endereço de acesso precisam estar preparados para a publicação funcionar.
+
+### 8.1. Configurar o serviço existente
+
+Abra o projeto no Railway e selecione o serviço da API que já está conectado ao repositório `VitorrSan/recomendador-livros`. Em **Settings**, confira as configurações abaixo. A branch selecionada deve conter as alterações de preparação para hospedagem revisadas pela equipe.
+
+| Configuração | Valor |
+|---|---|
+| Repositório | `VitorrSan/recomendador-livros` |
+| Root Directory | `/backend` |
+| Versão do Python | `3.12.10`, definida em `backend/.python-version` |
+| Start Command | `python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Healthcheck Path | `/health` |
+
+Cole o Start Command no campo do Railway. `app.main:app` identifica a aplicação FastAPI; `0.0.0.0` permite que ela receba conexões do serviço; `$PORT` utiliza a porta fornecida pelo Railway. O comando de produção não usa `--reload`.
+
+Em **Networking**, use o domínio público do serviço. O **Target Port** desse domínio deve corresponder à porta em que o Uvicorn iniciou, visível nos logs e na variável `PORT`. Por exemplo, se os logs mostrarem `0.0.0.0:8080`, configure `8080`. A porta `5173` é a do frontend local e não deve ser copiada para esse campo quando a API estiver em outra porta. Consulte a [orientação oficial para porta de destino](https://docs.railway.com/networking/troubleshooting/application-failed-to-respond).
+
+### 8.2. Guardar banco e artefatos em um volume
+
+Anexe um volume ao serviço da API com o ponto de montagem `/data`. Pense nele como a pasta de dados que permanece disponível quando uma nova versão do código é publicada. Conforme a [documentação de volumes](https://docs.railway.com/volumes), arquivos gravados fora do volume não têm essa persistência.
+
+Em **Variables**, configure:
+
+```dotenv
+BOOKS_DB_PATH=/data/books.db
+NLP_ARTIFACTS_DIR=/data/nlp
+SQL_ECHO=false
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+`BOOKS_DB_PATH` escolhe onde o SQLite será criado; `NLP_ARTIFACTS_DIR` indica a pasta dos vetores e metadados; `SQL_ECHO=false` evita registrar cada consulta SQL nos logs. `CORS_ORIGINS` permite que o navegador acesse a API a partir do frontend local. Quando a interface tiver um domínio próprio, inclua sua origem HTTPS nessa lista, sem caminhos ou barra final.
+
+Aplique as configurações e aguarde o serviço iniciar. O volume está disponível durante a execução da aplicação, não durante o build nem o pre-deploy. Por isso, a importação descrita abaixo é feita no serviço em execução.
+
+### 8.3. Enviar o lote validado
+
+CSV, banco e embeddings continuam fora do commit. O deploy pelo GitHub não envia esses arquivos. Confira primeiro os três arquivos e seus hashes no [guia de dados](../Data/README.md).
+
+Para transferi-los, instale a ferramenta de terminal do Railway seguindo o [guia oficial da CLI](https://docs.railway.com/cli). No PowerShell, a partir da raiz do repositório, entre na conta e selecione o projeto, o ambiente e o serviço da API:
+
+```powershell
+railway login
+railway link
+railway status
+```
+
+Confira o destino exibido por `railway status` antes de continuar. Use o volume montado em `/data` quando a ferramenta pedir a seleção. Os comandos abaixo copiam cada arquivo local para o caminho remoto indicado:
+
+```powershell
+railway volume files upload .\Data\livros_limpos.csv /data/livros_limpos.csv
+railway volume files upload .\backend\app\nlp\livros_metadata.csv /data/nlp/livros_metadata.csv
+railway volume files upload .\backend\app\nlp\embeddings_livros.npy /data/nlp/embeddings_livros.npy
+```
+
+O formato é `railway volume files upload LOCAL REMOTO`, conforme a [referência de arquivos do volume](https://docs.railway.com/cli/volume). Esses comandos servem ao primeiro envio. Se o destino já existir, confira o lote antes de decidir substituí-lo.
+
+### 8.4. Importar no servidor e conferir a API
+
+O próximo comando executa o importador dentro do serviço remoto, usando o CSV e o banco do volume:
+
+```powershell
+railway ssh -- python -m app.importar_catalogo /data/livros_limpos.csv --aplicar
+```
+
+A [referência de SSH](https://docs.railway.com/cli/ssh) explica a execução remota de comandos. Se o painel oferecer um console com shell dentro do serviço, também é possível executar nele `python -m app.importar_catalogo /data/livros_limpos.csv --aplicar`. Não substitua SSH por `railway run`: este último executa o programa no seu computador com as variáveis do Railway, sem acessar o volume remoto.
+
+Em um banco novo, o lote validado deve inserir 1.795 livros. Reinicie o serviço ao substituir os artefatos, pois os vetores ficam em memória depois da primeira consulta. Para conferir o resultado no PowerShell local, substitua o domínio abaixo pelo endereço HTTPS real da API:
+
+```powershell
+$api = 'https://SEU-DOMINIO.up.railway.app'
+Invoke-RestMethod "$api/health"
+$livros = Invoke-RestMethod "$api/books?limit=1"
+if ($livros.Count -eq 0) { throw 'O catálogo remoto está vazio. Confira a importação e BOOKS_DB_PATH.' }
+$primeiro = $livros[0]
+Invoke-RestMethod "$api/books/$($primeiro.id)"
+Invoke-RestMethod "$api/books/$($primeiro.id)/similar?limit=3"
+```
+
+`/health` confirma que a aplicação responde, mas não comprova que o catálogo foi importado ou que os embeddings estão disponíveis. Confira também o livro retornado e seus similares. No lote validado em banco novo, *The House in the Cerulean Sea* deve recomendar *Somewhere Beyond the Sea* em primeiro lugar, com cosseno próximo de `0.835`.
+
+Por fim, configure no frontend o endereço-base da API com o domínio HTTPS do Railway e teste catálogo, detalhe e recomendações no navegador. A origem da página deve estar incluída em `CORS_ORIGINS`.
+
+## 9. Funcionalidades futuras
 
 - Filtros no catálogo.
-- Validação do fluxo completo com a interface.
 - Busca semântica por texto.
-- Testes adicionais e hospedagem.
+- Validação da API publicada e da persistência após um novo deploy.
+- Avaliação da relevância das recomendações com a equipe.
 
-## 9. Observações
+A integração local entre catálogo, detalhe e similares já foi validada com a interface. A publicação exige repetir essa conferência usando o domínio remoto e os dados do volume.
+
+## 10. Observações
 
 O projeto está em desenvolvimento acadêmico.
 
