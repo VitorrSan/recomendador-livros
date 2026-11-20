@@ -8,7 +8,7 @@ const codigo = fs
   .readFileSync(path.join(__dirname, "..", "script.js"), "utf8")
   .replace(/\biniciar\(\);\s*$/, "");
 
-function carregarInterface(fetch) {
+function carregarInterface(fetch, configuracao) {
   const elementos = Object.fromEntries(
     ["app", "campo", "sugestoes", "aviso"].map(id => [
       id,
@@ -26,6 +26,7 @@ function carregarInterface(fetch) {
     location: { hash: "" },
     requestAnimationFrame: callback => callback(),
     fetch,
+    CONFIGURACAO: configuracao,
   });
   vm.runInContext(
     codigo + "\nglobalThis.livroRegistrado = id => porId[id];",
@@ -126,4 +127,42 @@ test("hash malformado abre a tela inicial sem erro de URI", () => {
 
   assert.doesNotThrow(() => contexto.rota());
   assert.match(elementos.app.innerHTML, /class="hero"/);
+});
+
+test("usa a API configurada sem duplicar a barra do endereço", async () => {
+  const chamadas = [];
+  const { contexto } = carregarInterface(async endereco => {
+    chamadas.push(endereco);
+    return { ok: true, json: async () => [] };
+  }, { API_URL: " https://api.example.org/ " });
+
+  await contexto.carregarLivros();
+  await contexto.buscarSimilares(1);
+
+  assert.deepEqual(chamadas, [
+    "https://api.example.org/books?offset=0&limit=100",
+    "https://api.example.org/books/1/similar?limit=10",
+  ]);
+});
+
+test("nomes herdados de Object não são tratados como IDs de livros", () => {
+  const { contexto, elementos } = carregarInterface();
+  vm.runInContext("porId = Object.fromEntries([])", contexto);
+
+  for (const id of ["constructor", "__proto__", "toString"]) {
+    contexto.location.hash = "#livro-" + id;
+    contexto.rota();
+    assert.match(elementos.app.innerHTML, /class="hero"/);
+  }
+});
+
+test("API_URL vazia mantém o modo estático sem fazer consultas HTTP", async () => {
+  const { contexto } = carregarInterface(() => {
+    assert.fail("O modo estático não deve consultar a API");
+  }, { API_URL: "" });
+  const dados = { livros: [{ id: 1, titulo: "Livro local" }], similares: { 1: [] } };
+  contexto.DADOS = dados;
+
+  assert.equal(await contexto.carregarLivros(), dados.livros);
+  assert.equal(await contexto.buscarSimilares(1), dados.similares[1]);
 });

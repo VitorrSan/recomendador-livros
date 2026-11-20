@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Biblioteca: livros parecidos</title>
+  <title>EntreLivros | Recomendações de livros</title>
   <meta name="theme-color" content="#0b0b0c">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="Pesquise livros usando a similaridade do cosseno e descubra quais são os mais parecidos.">
-  <meta property="og:title" content="Biblioteca: livros parecidos">
-  <meta property="og:description" content="Pesquise livros usando a similaridade do cosseno.">
+  <meta name="description" content="Encontre sua próxima leitura. Explore o catálogo, busque por título ou autor e descubra livros com sinopses semelhantes.">
+  <meta property="og:title" content="EntreLivros | Recomendações de livros">
+  <meta property="og:description" content="Explore o catálogo e descubra novas leituras a partir de um livro que desperta seu interesse.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,10 +17,10 @@
 </head>
 <body>
   <header class="topo">
-    <a class="logo" href="#" aria-label="Início">📚 <span>Biblioteca</span></a>
+    <a class="logo" href="#" aria-label="EntreLivros — Página inicial"><span aria-hidden="true">📚</span><span class="marca">EntreLivros<small>Recomendações de livros</small></span></a>
     <div class="busca">
       <label for="campo" class="so-leitor">Buscar livro por título ou autor</label>
-      <input id="campo" type="search" placeholder="Digite um livro..." autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" role="combobox" aria-expanded="false" aria-controls="sugestoes" aria-autocomplete="list">
+      <input id="campo" type="search" placeholder="Busque por título ou autor" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" role="combobox" aria-expanded="false" aria-controls="sugestoes" aria-autocomplete="list">
       <ul id="sugestoes" role="listbox" aria-label="Sugestões de livros" hidden></ul>
     </div>
   </header>
@@ -30,13 +30,14 @@
   <main id="app">
     <div class="esqueleto" aria-hidden="true"><div class="sk-hero"></div>
       <div class="sk-fila"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-    <p class="so-leitor">Carregando livros...</p>
+    <p class="so-leitor">Carregando o catálogo de livros...</p>
   </main>
 
-  <footer>Trabalho P2 — similaridade do cosseno</footer>
+  <footer><strong>EntreLivros · Recomendador Semântico de Livros</strong><br>Projeto acadêmico de Álgebra Linear e Processamento de Linguagem Natural</footer>
 
   <noscript><p class="vazio" style="text-align:center">Ative o JavaScript para usar o site.</p></noscript>
   <script src="dados.js"></script>
+  <script src="config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

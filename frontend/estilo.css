@@ -19,7 +19,9 @@ h1, h2, h3, .logo, .pn, .score, .voltar, .cap-tit { font-family: "Bricolage Grot
   background: rgba(11,11,12,.72); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
   border-bottom: 1px solid var(--borda);
 }
-.logo { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; color: var(--ouro); font-weight: 700; font-size: 1.2rem; text-decoration: none; white-space: nowrap; letter-spacing: -.01em; }
+.logo { display: inline-flex; align-items: center; gap: .65rem; min-height: 44px; min-width: 44px; color: var(--ouro); font-weight: 700; font-size: 1.2rem; text-decoration: none; white-space: nowrap; letter-spacing: -.01em; }
+.marca { display: flex; flex-direction: column; line-height: 1.2; }
+.marca small { margin-top: .25rem; font-family: "Inter", system-ui, sans-serif; font-size: .7rem; font-weight: 400; color: var(--suave); letter-spacing: .02em; }
 .busca { position: relative; flex: 1; max-width: 480px; margin-left: auto; }
 .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 input {
@@ -44,6 +46,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 0 1rem; }
   color: var(--ouro); background: linear-gradient(120deg, var(--ouro-2), var(--ouro) 45%, #e8902a);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
+.hero > .selo { margin-bottom: .85rem; }
 .hero p { margin: 0; color: var(--suave); font-size: 1.1rem; max-width: 50ch; }
 
 /* fileiras */
@@ -108,7 +111,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 0 1rem; }
 .link { color: var(--ouro-2); display: inline-flex; align-items: center; min-height: 44px; }
 #similares { padding: 0 1.25rem 1rem; }
 .sub { font-size: 1.2rem; margin: 1.5rem 0 .8rem; letter-spacing: -.01em; }
-ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
+ol { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .75rem; }
 @media (min-width: 900px) { ol { grid-template-columns: 1fr 1fr; } }
 .livro {
   width: 100%; display: grid; grid-template-columns: 48px 1fr auto; gap: .1rem .9rem; align-items: center; text-align: left;
@@ -128,8 +131,10 @@ ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
 .vazio { color: var(--suave); padding: 1rem 1.25rem; }
 .tentar { margin: 0 1.25rem; font: inherit; cursor: pointer; color: var(--claro); background: var(--card); border: 1px solid var(--borda); border-radius: 999px; padding: .4rem 1.1rem; }
 footer { text-align: center; color: var(--suave); font-size: .85rem; padding: 2.5rem 1rem; }
+footer strong { color: var(--claro); font-weight: 500; }
 @media (max-width: 480px) {
-  .logo span { display: none; }
+  .topo { flex-wrap: wrap; gap: .7rem; }
+  .busca { flex-basis: 100%; max-width: none; }
   .detalhe { padding: 1rem; gap: 1rem; flex-direction: column; }
   .detalhe > .capa.grande { align-self: center; }
 }

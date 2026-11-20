@@ -1,4 +1,4 @@
-# Recomendador Inteligente de Livros
+# EntreLivros — Recomendador Semântico de Livros
 
 **Sistema Web de Recomendação de Livros utilizando Transformers, Processamento de Linguagem Natural e Similaridade do Cosseno.**
 
@@ -6,7 +6,7 @@
 
 O projeto consiste no desenvolvimento de uma plataforma web de recomendação inteligente de livros, inspirada na experiência de descoberta de conteúdos de plataformas como Netflix e Amazon.
 
-O sistema permitirá que os usuários explorem um catálogo de livros, consultem informações sobre as obras e recebam recomendações de títulos semelhantes aos livros selecionados.
+O sistema permite explorar o catálogo, buscar por título ou autor, consultar informações sobre as obras e receber recomendações de títulos semelhantes ao livro selecionado.
 
 Além da recomendação baseada nas características dos livros, o projeto prevê a possibilidade de personalização das sugestões conforme os interesses e as interações de cada usuário.
 
@@ -111,7 +111,7 @@ Funcionalidades previstas:
 | Processamento numérico | NumPy / PyTorch |
 | Testes | pytest e clientes HTTP |
 | Versionamento | Git e GitHub |
-| Hospedagem | Plataforma a definir |
+| Hospedagem da API | Railway, em configuração |
 
 As tecnologias são escolhas iniciais e poderão ser ajustadas conforme as necessidades de integração e hospedagem.
 
@@ -277,13 +277,14 @@ Todos os integrantes deverão compreender o funcionamento geral da aplicação p
 - Listagem paginada e consulta individual dos livros.
 - Recomendação por similaridade do cosseno a partir dos embeddings exportados.
 - Testes automatizados do catálogo, do importador e da recomendação.
+- Interface responsiva com busca, catálogo, detalhes e recomendações integrados à API.
 
-O catálogo e as recomendações foram integrados à `main` no [PR #4](https://github.com/VitorrSan/recomendador-livros/pull/4). A interface web está em desenvolvimento.
+O catálogo e as recomendações foram integrados à `main` no [PR #4](https://github.com/VitorrSan/recomendador-livros/pull/4). A integração da interface foi concluída no [PR #5](https://github.com/VitorrSan/recomendador-livros/pull/5). Os guias de execução estão nas pastas [backend](backend/README.md) e [frontend](frontend/README.md).
 
 ### Funcionalidades pendentes
 
-- Distribuição do lote validado e preparação do ambiente em outra máquina.
-- Integração da interface de catálogo, detalhe e similares com a API.
+- Provisionamento do lote validado em armazenamento persistente no Railway.
+- Conexão da interface à API publicada após importar o catálogo remoto.
 - Avaliação da relevância do ranking e testes do fluxo completo.
 - Hospedagem e validação da aplicação publicada.
 
@@ -307,7 +308,7 @@ Preparação do repositório, ambiente Python, FastAPI, SQLite e testes iniciais
 
 Definição do dataset, importação dos livros, consolidação dos modelos de dados e integração do catálogo com o Front-end.
 
-O catálogo está disponível no Backend e segue em integração com a interface.
+O catálogo está disponível no Backend e integrado à interface.
 
 ### Fase 3 — Motor de recomendação
 
@@ -317,7 +318,7 @@ Os notebooks geram os embeddings. O Backend calcula o ranking de livros semelhan
 
 Construção da interface de recomendações, com destaque para a seção "Você também pode gostar" e a navegação entre livros relacionados.
 
-A interface está em desenvolvimento.
+A interface principal está implementada e validada localmente.
 
 ### Fase 5 — Funcionalidades complementares
 

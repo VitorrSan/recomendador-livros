@@ -1,4 +1,4 @@
-# Front-end — biblioteca de livros parecidos
+# EntreLivros — Frontend
 
 Site em HTML, CSS e JavaScript puro, com tema preto, amarelo e madeira. Por padrão, carrega o catálogo e as recomendações da API FastAPI do projeto em `http://127.0.0.1:8000`.
 
@@ -17,11 +17,12 @@ A busca por título e autor usa os livros carregados no JavaScript. A recomenda�
 | `index.html` | Estrutura da página e carregamento de `estilo.css` e dos scripts |
 | `estilo.css` | Tema e layout responsivo |
 | `script.js` | Requisições, fileiras, busca, detalhe e navegação |
+| `config.js` | Endereço da API para desenvolvimento ou publicação |
 | `dados.js` | Dados opcionais para o modo estático |
 
 ## Executar com o Backend
 
-Prepare os dados, instale as dependências e inicie a API conforme o [guia do Backend](../backend/README.md). A constante `API_URL`, no início de `script.js`, aponta por padrão para `http://127.0.0.1:8000`.
+Prepare os dados, instale as dependências e inicie a API conforme o [guia do Backend](../backend/README.md). A propriedade `API_URL`, em `config.js`, aponta por padrão para `http://127.0.0.1:8000`.
 
 Em outro PowerShell, abra a pasta `frontend` e inicie o servidor estático na porta 5173. Se o ambiente do Backend já estiver criado, use o comando abaixo.
 
@@ -32,6 +33,14 @@ Em outro PowerShell, abra a pasta `frontend` e inicie o servidor estático na po
 Também é possível usar o Python instalado no Windows, com `py -m http.server 5173 --bind 127.0.0.1`. Abra [a interface local](http://127.0.0.1:5173).
 
 O Backend permite as origens `http://localhost:5173` e `http://127.0.0.1:5173` por padrão. Caso a equipe utilize outra porta ou endereço, configure `CORS_ORIGINS` no PowerShell do Backend e reinicie a API, conforme o guia. Uma publicação da interface também precisa de um endereço de API acessível aos usuários e permitido nessa configuração.
+
+## Usar a API no Railway
+
+Primeiro conclua a configuração do volume e a importação do catálogo seguindo a seção de Railway no [guia do Backend](../backend/README.md). O sucesso de `/health` confirma que o processo responde; confira também um livro e suas recomendações antes de conectar a interface.
+
+Depois, altere somente `API_URL` em `config.js` para `https://recomendador-livros-production.up.railway.app`. Esse arquivo é público e não deve conter senhas ou tokens. O restante do JavaScript usa o endereço configurado para consultar o catálogo e os similares.
+
+Enquanto a interface estiver apenas no computador, mantenha as duas origens locais da porta 5173 no `CORS_ORIGINS` do Railway. Quando publicar o site, acrescente também sua origem HTTPS exata. O endereço da API e a origem do frontend têm funções diferentes: o primeiro é o destino das consultas; a segunda identifica o site autorizado a fazê-las pelo navegador.
 
 ## Contrato de integração
 
@@ -45,7 +54,7 @@ Se a resposta de similares for uma lista vazia, a página informa que não há s
 
 ## Modo estático opcional
 
-Para usar somente dados locais, defina `API_URL = ""` e preencha `dados.js` com o objeto abaixo. O arquivo distribuído no repositório começa vazio. Todos os IDs usados em `similares` devem existir em `livros`.
+Para usar somente dados locais, defina `API_URL: ""` em `config.js` e preencha `dados.js` com o objeto abaixo. O arquivo distribuído no repositório começa vazio. Todos os IDs usados em `similares` devem existir em `livros`.
 
 ```js
 const DADOS = {
