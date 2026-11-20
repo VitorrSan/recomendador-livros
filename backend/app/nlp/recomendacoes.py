@@ -102,5 +102,5 @@ def carregar_catalogo(pasta: Path) -> CatalogoVetorial:
             ids_por_posicao=ids,
             posicao_por_id={identificador: indice for indice, identificador in enumerate(ids)},
         )
-    except (OSError, ValueError, EOFError, BadZipFile, csv.Error) as erro:
+    except (OSError, ValueError, EOFError, OverflowError, BadZipFile, csv.Error) as erro:
         raise ArtefatosIndisponiveis(str(erro)) from erro

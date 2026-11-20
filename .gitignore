@@ -27,7 +27,8 @@ build/
 *.db
 *.sqlite3
 
-# Artefatos de PLN gerados no Colab
+# Dataset e artefatos de PLN gerados no Colab
+/Data/livros_limpos.csv
 /backend/app/nlp/embeddings_livros.npy
 /backend/app/nlp/livros_metadata.csv
 

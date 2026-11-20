@@ -175,3 +175,15 @@ def test_rejeita_artefatos_inconsistentes(contexto_api, outro_vetor, outras_linh
     )
 
     assert client.get("/books/21/similar").status_code == 503
+
+
+def test_rejeita_cabecalho_npy_com_dimensao_acima_do_limite(contexto_api):
+    client, pasta = contexto_api
+    salvar_artefatos(pasta, [[1.0]], [(0, "3003")])
+    with (pasta / "embeddings_livros.npy").open("wb") as arquivo:
+        np.lib.format.write_array_header_1_0(
+            arquivo,
+            {"descr": "<f4", "fortran_order": False, "shape": (2**100, 1)},
+        )
+
+    assert client.get("/books/21/similar").status_code == 503

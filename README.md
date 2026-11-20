@@ -36,11 +36,7 @@ O sistema deverá permitir:
 
 O usuário poderá selecionar um livro do catálogo e receber recomendações de outros títulos semanticamente relacionados.
 
-**Exemplo:**
-
-O usuário seleciona o livro *O Hobbit*, de J. R. R. Tolkien.
-
-O sistema consulta a representação vetorial da obra, compara esse embedding com os vetores dos demais livros e retorna um ranking dos títulos com maior similaridade.
+No lote atual, ao selecionar *The House in the Cerulean Sea*, a API recomenda *Somewhere Beyond the Sea* em primeiro lugar. O sistema compara o embedding da obra selecionada com os vetores dos demais livros e ordena os resultados pelo cosseno.
 
 As recomendações poderão ser apresentadas em uma seção denominada **"Você também pode gostar"**.
 
@@ -103,13 +99,13 @@ Funcionalidades previstas:
 
 | Camada | Tecnologia |
 |---|---|
-| Front-end | React, TypeScript e Vite |
-| Estilização | Tailwind CSS |
+| Front-end | HTML, CSS e JavaScript |
+| Estilização | CSS responsivo |
 | Backend | Python e FastAPI |
 | Banco de dados inicial | SQLite |
 | Modelagem e ORM | SQLModel / SQLAlchemy |
 | PLN | Sentence Transformers |
-| Modelo de IA | Transformer pré-treinado a definir |
+| Modelo de IA do lote atual | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` |
 | Representação textual | Embeddings |
 | Comparação vetorial | Similaridade do cosseno |
 | Processamento numérico | NumPy / PyTorch |
@@ -127,7 +123,7 @@ As sinopses e outras informações textuais relevantes serão preparadas e proce
 
 O modelo converterá os textos em embeddings, que são representações numéricas capazes de capturar características semânticas.
 
-Os embeddings poderão ser pré-calculados e armazenados separadamente dos metadados dos livros, evitando que o modelo precise processar todo o catálogo a cada recomendação.
+Os notebooks pré-calculam os embeddings. A API carrega a matriz e os metadados exportados e reutiliza os vetores para responder às consultas.
 
 ### 5.2. Similaridade do cosseno
 
@@ -198,25 +194,9 @@ Responsável pela geração de embeddings, cálculo de similaridades e organiza�
 
 ## 7. Dataset
 
-O dataset definitivo ainda será definido pelo grupo.
+O lote validado tem 1.795 livros do Goodreads. O importador cria o catálogo no SQLite e mantém o vínculo entre o ID de origem do Goodreads e o ID interno usado pela API. Os notebooks preparam o CSV e geram os embeddings de 384 dimensões.
 
-A base deverá fornecer informações relevantes para o catálogo e para o processamento semântico.
-
-Campos desejados:
-
-- Identificador estável do livro.
-- Título.
-- Autor.
-- Sinopse ou descrição textual.
-- Gênero e categorias.
-- Ano de publicação.
-- URL da capa, quando disponível.
-
-O dataset deverá passar por limpeza, padronização, tratamento de dados ausentes e identificação de duplicatas.
-
-Também deverão ser avaliadas as condições de uso e reutilização dos dados.
-
-Será necessário garantir a correspondência entre os identificadores dos registros armazenados no banco e os embeddings gerados pelo algoritmo.
+Para reproduzir o catálogo e o ranking, use os três arquivos do mesmo lote e confira os locais e hashes no [guia de dados](Data/README.md).
 
 ## 8. Endpoints da API
 
@@ -227,14 +207,14 @@ Será necessário garantir a correspondência entre os identificadores dos regis
 | GET | `/health` | Verificar a resposta da aplicação |
 | GET | `/books` | Listar livros com paginação |
 | GET | `/books/{book_id}` | Consultar um livro pelo ID |
+| GET | `/books/{book_id}/similar` | Recomendar livros semelhantes ao selecionado |
 
-O Backend utiliza SQLite e SQLModel, com inicialização das tabelas na inicialização da aplicação.
+O Backend utiliza SQLite e SQLModel e prepara as tabelas na inicialização. Para abrir um resultado de recomendação, o frontend usa o ID interno retornado em `livro.id`. O contrato de resposta e as origens permitidas para desenvolvimento estão no [guia do Backend](backend/README.md).
 
 ### Planejados
 
 | Método | Endpoint sugerido | Finalidade |
 |---|---|---|
-| GET | `/books/{book_id}/similar` | Recomendar livros semelhantes ao selecionado |
 | POST | `/recommendations/search` | Busca semântica por texto |
 | GET | `/users/me/recommendations` | Recomendações personalizadas ao usuário autenticado |
 | POST | `/interactions` | Registrar interações relevantes para personalização |
@@ -292,26 +272,20 @@ Todos os integrantes deverão compreender o funcionamento geral da aplicação p
 
 ### Funcionalidades implementadas
 
-- Estrutura inicial do repositório GitHub.
-- Ambiente Python e Backend FastAPI.
-- Endpoint de verificação `/health`.
-- Banco SQLite e modelo de livros com SQLModel.
-- Inicialização das tabelas.
-- Endpoint de listagem paginada `/books`.
-- Endpoint de consulta individual `/books/{book_id}`.
-- Testes automatizados iniciais.
-- Documentação específica do Backend.
+- Backend FastAPI com SQLite, SQLModel e teste de disponibilidade em `/health`.
+- Importação do catálogo a partir do CSV limpo, com capas e IDs de origem.
+- Listagem paginada e consulta individual dos livros.
+- Recomendação por similaridade do cosseno a partir dos embeddings exportados.
+- Testes automatizados do catálogo, do importador e da recomendação.
+
+O catálogo e as recomendações foram integrados à `main` no [PR #4](https://github.com/VitorrSan/recomendador-livros/pull/4). A interface web está em desenvolvimento.
 
 ### Funcionalidades pendentes
 
-- Definição e importação do dataset definitivo.
-- Seleção e integração do modelo Transformer.
-- Pré-processamento das descrições.
-- Geração e armazenamento dos embeddings.
-- Implementação do motor de recomendação por similaridade entre livros.
-- Integração entre Front-end e Backend.
-- Interface completa do catálogo.
-- Hospedagem e testes do sistema publicado.
+- Distribuição do lote validado e preparação do ambiente em outra máquina.
+- Integração da interface de catálogo, detalhe e similares com a API.
+- Avaliação da relevância do ranking e testes do fluxo completo.
+- Hospedagem e validação da aplicação publicada.
 
 ### Funcionalidades adicionais planejadas
 
@@ -333,19 +307,17 @@ Preparação do repositório, ambiente Python, FastAPI, SQLite e testes iniciais
 
 Definição do dataset, importação dos livros, consolidação dos modelos de dados e integração do catálogo com o Front-end.
 
-**Situação:** em desenvolvimento.
+O catálogo está disponível no Backend e segue em integração com a interface.
 
 ### Fase 3 — Motor de recomendação
 
-Integração do Transformer, geração dos embeddings e implementação do ranking de livros semelhantes.
-
-**Situação:** planejada.
+Os notebooks geram os embeddings. O Backend calcula o ranking de livros semelhantes com o lote validado.
 
 ### Fase 4 — Experiência principal
 
 Construção da interface de recomendações, com destaque para a seção "Você também pode gostar" e a navegação entre livros relacionados.
 
-**Situação:** planejada.
+A interface está em desenvolvimento.
 
 ### Fase 5 — Funcionalidades complementares
 
@@ -361,41 +333,9 @@ Testes funcionais e de integração, avaliação das recomendações, publicaç�
 
 ## 12. Execução Local do Backend
 
-Requisitos iniciais:
+Com Python 3.12 instalado, coloque os [arquivos do lote](Data/README.md) nos caminhos indicados. Siga a [execução local do Backend](backend/README.md#3-preparação-do-ambiente) para instalar as dependências, validar o CSV, importar o catálogo e iniciar o servidor no PowerShell.
 
-- Python 3.12
-- Git
-- Dependências descritas em `backend/requirements.txt`
-
-A partir da pasta `backend`, no PowerShell:
-
-**Criar ambiente virtual:**
-
-`py -3.12 -m venv .venv`
-
-**Ativar ambiente:**
-
-`.\.venv\Scripts\Activate.ps1`
-
-**Instalar dependências:**
-
-`python -m pip install -r requirements.txt`
-
-**Iniciar a API:**
-
-`python -m uvicorn app.main:app --reload`
-
-**Executar testes:**
-
-`python -m pytest -v`
-
-Documentação interativa:
-
-`http://127.0.0.1:8000/docs`
-
-O banco SQLite local será inicializado pela aplicação, criando as tabelas ausentes. A importação dos livros será realizada posteriormente.
-
-Informações adicionais estão disponíveis em `backend/README.md`.
+Depois da inicialização, abra [a documentação interativa da API](http://127.0.0.1:8000/docs) para testar o catálogo e as recomendações.
 
 ## 13. Versionamento e Colaboração
 

@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+from os import getenv
 
-from fastapi import Depends, FastAPI, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, col, select
 
 from app.db import SQLITE_MAX_INTEGER, create_db_and_tables, get_session
@@ -14,19 +16,16 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(
-    title="Recomendador Semântico de Livros",
-    lifespan=lifespan
-)
+router = APIRouter()
 
 
-@app.get("/health")
+@router.get("/health")
 def health():
     return {"status": "ok"}
 
 
 
-@app.get("/books", response_model=list[Book])
+@router.get("/books", response_model=list[Book])
 def listar_livros(
     offset: int = Query(default=0, ge=0, le=SQLITE_MAX_INTEGER),
     limit: int = Query(default=20, ge=1, le=100),
@@ -37,7 +36,7 @@ def listar_livros(
     return livros
 
 
-@app.get("/books/{book_id}", response_model=Book)
+@router.get("/books/{book_id}", response_model=Book)
 def buscar_livro(
     book_id: int = Path(ge=1, le=SQLITE_MAX_INTEGER),
     session: Session = Depends(get_session),
@@ -50,7 +49,7 @@ def buscar_livro(
     return livro
 
 
-@app.get("/books/{book_id}/similar", response_model=list[LivroSimilar])
+@router.get("/books/{book_id}/similar", response_model=list[LivroSimilar])
 def recomendar_livros_similares(
     book_id: int = Path(ge=1, le=SQLITE_MAX_INTEGER),
     limit: int = Query(default=5, ge=1, le=20),
@@ -95,3 +94,18 @@ def recomendar_livros_similares(
         for id_interno, (_, similaridade) in zip(ids_ranqueados, ranking)
         if id_interno in livros_por_id
     ]
+
+
+def criar_app() -> FastAPI:
+    api = FastAPI(title="Recomendador Semântico de Livros", lifespan=lifespan)
+    origens = getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    api.add_middleware(
+        CORSMiddleware,
+        allow_origins=[origem.strip() for origem in origens.split(",") if origem.strip()],
+        allow_methods=["GET"],
+    )
+    api.include_router(router)
+    return api
+
+
+app = criar_app()
