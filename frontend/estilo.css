@@ -19,8 +19,9 @@ h1, h2, h3, .logo, .pn, .score, .voltar, .cap-tit { font-family: "Bricolage Grot
   background: rgba(11,11,12,.72); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
   border-bottom: 1px solid var(--borda);
 }
-.logo { display: inline-flex; align-items: center; gap: .65rem; min-height: 44px; min-width: 44px; color: var(--ouro); font-weight: 700; font-size: 1.2rem; text-decoration: none; white-space: nowrap; letter-spacing: -.01em; }
-.marca { display: flex; flex-direction: column; line-height: 1.2; }
+.logo { display: inline-flex; align-items: center; gap: .65rem; min-height: 44px; min-width: 0; max-width: 100%; color: var(--ouro); font-weight: 700; font-size: 1.2rem; text-decoration: none; white-space: normal; letter-spacing: -.01em; }
+.logo > [aria-hidden] { flex: none; }
+.marca { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .marca small { margin-top: .25rem; font-family: "Inter", system-ui, sans-serif; font-size: .7rem; font-weight: 400; color: var(--suave); letter-spacing: .02em; }
 .busca { position: relative; flex: 1; max-width: 480px; margin-left: auto; }
 .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -171,5 +172,8 @@ button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 }
 @keyframes brilho { to { background-position: -200% 0; } }
 @keyframes entrar { from { opacity: 0; } }
-@media (max-width: 480px) { .destaque { padding: 1rem; gap: 1rem; } }
+@media (max-width: 480px) {
+  .destaque { padding: 1rem; gap: 1rem; }
+  .botao { white-space: normal; padding: .6rem .85rem; }
+}
 @media (max-width: 380px) { .destaque { flex-direction: column; align-items: flex-start; } }

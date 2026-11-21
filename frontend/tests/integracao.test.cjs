@@ -166,3 +166,30 @@ test("API_URL vazia mantém o modo estático sem fazer consultas HTTP", async ()
   assert.equal(await contexto.carregarLivros(), dados.livros);
   assert.equal(await contexto.buscarSimilares(1), dados.similares[1]);
 });
+
+test("conteúdo do catálogo é tratado como texto ao renderizar os cards", () => {
+  const { contexto } = carregarInterface();
+  const livro = contexto.padronizarLivro({
+    id: '\"><script>alert(1)</script>',
+    titulo: '<img src=x onerror=alert(1)>',
+    autor: '\"><svg onload=alert(1)>',
+  });
+
+  const html = contexto.posterHTML(livro);
+
+  assert.doesNotMatch(html, /<script\b|<svg\b|<img\b/);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(html, /data-id="&quot;&gt;&lt;script&gt;/);
+});
+
+test("capas e links rejeitam protocolos que podem executar conteúdo", () => {
+  const { contexto } = carregarInterface();
+  for (const url of ['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'file:///private.key']) {
+    const livro = contexto.padronizarLivro({ id: 1, capa_url: url, url });
+    assert.equal(livro.capa, '');
+    assert.equal(livro.url, '');
+  }
+  const seguro = contexto.padronizarLivro({ id: 2, capa_url: 'https://covers.example.org/2.jpg', url: 'https://goodreads.com/book/show/2' });
+  assert.equal(seguro.capa, 'https://covers.example.org/2.jpg');
+  assert.equal(seguro.url, 'https://goodreads.com/book/show/2');
+});

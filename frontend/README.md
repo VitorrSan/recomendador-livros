@@ -1,6 +1,6 @@
-# EntreLivros — Frontend
+# Frontend — Recomendador Semântico de Livros
 
-Site em HTML, CSS e JavaScript puro, com tema preto, amarelo e madeira. Por padrão, carrega o catálogo e as recomendações da API FastAPI publicada em `https://recomendador-livros-production.up.railway.app`. A interface é servida localmente enquanto a hospedagem do frontend não é definida pela equipe.
+Site em HTML, CSS e JavaScript puro, com tema preto, amarelo e madeira. Por padrão, carrega o catálogo e as recomendações da API FastAPI publicada em `https://recomendador-livros-production.up.railway.app`. A publicação da interface está preparada para o GitHub Pages, mantendo a execução local disponível para desenvolvimento.
 
 - A tela inicial mostra um livro em destaque e fileiras por gênero com pelo menos três títulos. Quando não há gêneros com essa quantidade, mostra uma fileira geral.
 - A busca sugere títulos e autores enquanto o usuário digita, com navegação pelo teclado e normalização de acentos.
@@ -82,3 +82,19 @@ Os campos opcionais e os nomes das colunas do dataset, como `title`, `author`, `
 - No lote validado, conferir *The House in the Cerulean Sea* com *Somewhere Beyond the Sea* como primeiro similar, próximo de 83%.
 - Conferir a busca pelo teclado, o botão voltar e o layout no celular.
 - Verificar a mensagem de indisponibilidade quando o serviço de recomendações falhar.
+
+## Publicação no GitHub Pages
+
+O workflow `.github/workflows/pages.yml` executa os testes do frontend e prepara uma pasta de publicação com apenas `index.html`, `estilo.css`, `script.js`, `config.js` e `dados.js`. Backend, notebooks, testes, documentação e dados locais não entram no pacote publicado.
+
+Em **Settings → Pages**, a origem de publicação deve ser **GitHub Actions**. Após a revisão e o merge na `main`, o workflow publica o conteúdo no Pages. A execução manual também está disponível em **Actions**, mas o job de publicação aceita somente a `main`.
+
+O endereço esperado é `https://vitorrsan.github.io/recomendador-livros/`; confirme o endereço efetivo na execução do workflow antes de divulgá-lo. Na API do Railway, a origem `https://vitorrsan.github.io` deve estar em `CORS_ORIGINS`, junto das origens locais. A origem não inclui `/recomendador-livros/` nem uma barra final.
+
+## Segurança da interface
+
+O endereço em `config.js` é público e não é uma chave de API. Nenhuma senha, token de acesso ou chave privada deve ser incluída nos arquivos do frontend. O catálogo é público e suas rotas de consulta não exigem credenciais.
+
+A política CSP declarada no início de `index.html` restringe scripts ao próprio site, limita as conexões à API e aos endereços locais de desenvolvimento, bloqueia objetos incorporados e impede formulários. Fontes externas são permitidas apenas nos domínios do Google Fonts; imagens externas usam HTTPS. A regra de estilos permite os atributos de cor gerados pela interface. A política de referência evita enviar o endereço da página a serviços externos.
+
+Conteúdo do catálogo é escapado antes da inserção em HTML. Os testes verificam esse comportamento com títulos e IDs maliciosos e rejeitam URLs `javascript:`, `data:` e `file:` para capas e links.
