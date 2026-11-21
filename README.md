@@ -1,4 +1,4 @@
-# EntreLivros — Recomendador Semântico de Livros
+# Recomendador Semântico de Livros
 
 **Sistema Web de Recomendação de Livros utilizando Transformers, Processamento de Linguagem Natural e Similaridade do Cosseno.**
 
@@ -112,6 +112,7 @@ Funcionalidades previstas:
 | Testes | pytest e clientes HTTP |
 | Versionamento | Git e GitHub |
 | Hospedagem da API | Railway, com SQLite e vetores em volume persistente |
+| Hospedagem da interface | GitHub Pages, com publicação preparada por GitHub Actions |
 
 As tecnologias são escolhas iniciais e poderão ser ajustadas conforme as necessidades de integração e hospedagem.
 
@@ -284,7 +285,7 @@ O catálogo e as recomendações foram integrados à `main` no [PR #4](https://g
 
 ### Funcionalidades pendentes
 
-- Publicação da interface em um endereço acessível ao grupo.
+- Primeira publicação da interface no GitHub Pages após a revisão do workflow.
 - Avaliação da relevância do ranking e testes do fluxo completo.
 - Validação da aplicação completa após a publicação da interface.
 
@@ -367,3 +368,15 @@ Este projeto busca demonstrar a aplicação de Processamento de Linguagem Natura
 A proposta combina desenvolvimento web, banco de dados e Inteligência Artificial para construir uma experiência de descoberta de conteúdos baseada em similaridade semântica e, futuramente, em preferências individuais.
 
 Além de desenvolver a aplicação, o grupo deverá compreender as decisões técnicas, os algoritmos utilizados e as limitações da solução para sua apresentação acadêmica.
+
+## 16. Revisão de segurança antes da publicação
+
+Na revisão de 20/11/2026, não foram encontradas credenciais nos arquivos revisados, no pacote de publicação ou no histórico Git analisado pelo Gitleaks 8.30.1. A consulta ao OSV não retornou vulnerabilidades conhecidas para as 29 versões de dependências declaradas naquele momento. Esses resultados não substituem novas verificações quando o código ou as dependências mudarem.
+
+A inspeção também incluiu código e saídas dos notebooks, renderização de conteúdo do catálogo e os caminhos de arquivos privados na API. Os caminhos testados para `.env`, banco, Git e artefatos retornaram 404. Não há endpoints de escrita, administração ou dados de usuários no contrato atual.
+
+Há e-mails pessoais nos metadados de autoria de alguns commits. A configuração de autoria atual e o histórico compartilhado foram mantidos. Esses e-mails não são chaves de acesso e não entram no pacote de arquivos do site.
+
+A publicação usa uma lista explícita de cinco arquivos do frontend. Dados, banco e chaves privadas permanecem fora do GitHub e do pacote do Pages. Os scripts externos são restringidos pela CSP da interface; o workflow fixa as versões das ações por SHA e limita as permissões de publicação ao job de deploy.
+
+A API é pública e somente de leitura. CORS restringe o acesso de páginas no navegador, mas não é autenticação nem impede consultas diretas. Controle de taxa por cliente e monitoramento de consumo são melhorias de disponibilidade para etapas futuras.

@@ -11,6 +11,17 @@ __pycache__/
 .env.*
 !.env.example
 
+# Chaves locais e certificados privados
+.ssh/
+*.pem
+*.key
+*.p12
+*.pfx
+id_ed25519
+id_ed25519_*
+id_rsa
+id_rsa_*
+
 # Arquivos locais do VS Code
 .vscode/
 

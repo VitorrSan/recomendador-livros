@@ -3,21 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>EntreLivros | Recomendações de livros</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://recomendador-livros-production.up.railway.app http://127.0.0.1:8000 http://localhost:8000; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Recomendador Semântico de Livros</title>
   <meta name="theme-color" content="#0b0b0c">
   <meta name="color-scheme" content="dark">
   <meta name="description" content="Encontre sua próxima leitura. Explore o catálogo, busque por título ou autor e descubra livros com sinopses semelhantes.">
-  <meta property="og:title" content="EntreLivros | Recomendações de livros">
+  <meta property="og:title" content="Recomendador Semântico de Livros">
   <meta property="og:description" content="Explore o catálogo e descubra novas leituras a partir de um livro que desperta seu interesse.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilo.css">
+  <link rel="stylesheet" href="estilo.css?v=2">
 </head>
 <body>
   <header class="topo">
-    <a class="logo" href="#" aria-label="EntreLivros — Página inicial"><span aria-hidden="true">📚</span><span class="marca">EntreLivros<small>Recomendações de livros</small></span></a>
+    <a class="logo" href="#" aria-label="Recomendador Semântico de Livros — Página inicial"><span aria-hidden="true">📚</span><span class="marca">Recomendador Semântico de Livros<small>Descubra novas leituras</small></span></a>
     <div class="busca">
       <label for="campo" class="so-leitor">Buscar livro por título ou autor</label>
       <input id="campo" type="search" placeholder="Busque por título ou autor" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" role="combobox" aria-expanded="false" aria-controls="sugestoes" aria-autocomplete="list">
@@ -33,7 +35,7 @@
     <p class="so-leitor">Carregando o catálogo de livros...</p>
   </main>
 
-  <footer><strong>EntreLivros · Recomendador Semântico de Livros</strong><br>Projeto acadêmico de Álgebra Linear e Processamento de Linguagem Natural</footer>
+  <footer><strong>Recomendador Semântico de Livros</strong><br>Projeto acadêmico de Álgebra Linear e Processamento de Linguagem Natural</footer>
 
   <noscript><p class="vazio" style="text-align:center">Ative o JavaScript para usar o site.</p></noscript>
   <script src="dados.js"></script>
