@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
 from app import main
-from app.db import get_session
+from app.db import obter_sessao
 from app.models import Book, GoodreadsBook
 
 
@@ -52,12 +52,12 @@ def contexto_api(tmp_path, monkeypatch):
         )
         session.commit()
 
-    def get_session_teste():
+    def obter_sessao_teste():
         with Session(engine) as session:
             yield session
 
     monkeypatch.setattr(main, "PASTA_ARTEFATOS", pasta)
-    monkeypatch.setitem(main.app.dependency_overrides, get_session, get_session_teste)
+    monkeypatch.setitem(main.app.dependency_overrides, obter_sessao, obter_sessao_teste)
     client = TestClient(main.app)
     try:
         yield client, pasta
@@ -119,6 +119,39 @@ def test_recomenda_por_id_e_mantem_ranking_com_candidato_ausente(artefatos_valid
     resposta_padrao = client.get("/books/21/similar")
     assert resposta_padrao.status_code == 200
     assert [item["livro"]["id"] for item in resposta_padrao.json()] == [61, 7, 54, 16, 33]
+
+
+def test_busca_proximo_lote_quando_o_primeiro_nao_tem_livros_importados(
+    contexto_api, monkeypatch
+):
+    client, pasta = contexto_api
+    monkeypatch.setattr(main, "TAMANHO_LOTE_RECOMENDACOES", 2)
+    salvar_artefatos(
+        pasta,
+        [[1.0, 0.0], [0.99, 0.01], [0.98, 0.02], [0.8, 0.6], [0.6, 0.8]],
+        [(0, "3003"), (1, "9009"), (2, "9010"), (3, "2002"), (4, "4004")],
+    )
+
+    resposta = client.get("/books/21/similar", params={"limit": 2})
+
+    assert resposta.status_code == 200
+    assert [item["livro"]["id"] for item in resposta.json()] == [61, 7]
+    assert [item["similaridade"] for item in resposta.json()] == pytest.approx([0.8, 0.6])
+
+
+def test_empate_preserva_a_ordem_dos_vetores(contexto_api):
+    client, pasta = contexto_api
+    salvar_artefatos(
+        pasta,
+        [[1.0, 0.0], [0.8, 0.6], [0.8, 0.6]],
+        [(2, "4004"), (0, "3003"), (1, "2002")],
+    )
+
+    resposta = client.get("/books/21/similar", params={"limit": 2})
+
+    assert resposta.status_code == 200
+    assert [item["livro"]["id"] for item in resposta.json()] == [61, 7]
+    assert [item["similaridade"] for item in resposta.json()] == pytest.approx([0.8, 0.8])
 
 
 def test_origem_inexistente_e_livro_sem_id_goodreads(contexto_api):

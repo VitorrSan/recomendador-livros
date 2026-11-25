@@ -12,10 +12,11 @@ A API disponibiliza o catálogo e recomenda livros semelhantes com os embeddings
 - FastAPI
 - Uvicorn
 - SQLModel e SQLAlchemy
+- Alembic
 - SQLite
 - NumPy
 - pytest
-- HTTPX / HTTPX2
+- HTTPX2
 
 ## 3. Preparação do ambiente
 
@@ -24,7 +25,7 @@ No Windows, instale o Python 3.12 e coloque os três arquivos do mesmo lote nos 
 ```powershell
 Set-Location backend
 py -3.12 -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+& .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
 **Selecionar o ambiente no VS Code:**
@@ -75,10 +76,6 @@ O banco utilizado nesta fase é SQLite.
 
 O arquivo `books.db` é local e não deve ser versionado no GitHub. Por padrão, fica na pasta `backend`. A variável `BOOKS_DB_PATH` permite escolher outro caminho, como `/data/books.db` em um volume do Railway. A API e o importador usam a mesma configuração.
 
-Durante a inicialização da aplicação, a função `create_db_and_tables()` é chamada pelo mecanismo `lifespan` do FastAPI, criando as tabelas ausentes.
-
-O cadastro de livros ocorre pelo importador. Em bancos criados antes do suporte a capas, a inicialização acrescenta a coluna opcional `capa_url` à tabela existente.
-
 O modelo atual `Book` contém os campos:
 
 - `id`
@@ -88,12 +85,33 @@ O modelo atual `Book` contém os campos:
 - `genero`
 - `descricao`
 - `capa_url`
+- `nota`
+- `avaliacoes`
+- `paginas`
+- `editora`
+- `url`
+
+### Atualizar a estrutura do SQLite
+
+O Alembic registra na tabela `alembic_version` a revisão aplicada ao banco. Durante o `lifespan` do FastAPI, `atualizar_banco()` executa as revisões pendentes. O importador aplica as mesmas revisões ao gravar. As revisões criam as tabelas em um banco novo, acrescentam as colunas opcionais a bancos antigos e criam o índice único de `goodreadsbook.book_id`. O índice acelera a consulta pelo ID interno e impede cadastrar dois vínculos Goodreads para o mesmo livro. A atualização mantém os registros e os IDs existentes.
+
+Para rodar a migração manualmente a partir da pasta `backend`, use:
+
+```powershell
+& .\.venv\Scripts\python.exe -m alembic upgrade head
+```
+
+O comando aplica as revisões até a mais recente ao banco apontado por `BOOKS_DB_PATH`, ou a `backend/books.db` quando a variável estiver ausente. Para experimentar a atualização de um banco existente, aponte a variável para uma cópia desse banco.
+
+Faça um backup do volume antes de publicar uma versão com migrações. As revisões iniciais preservam tabelas legadas e usam o backup como caminho de restauração.
 
 ### Importar o catálogo do Goodreads
 
-O formato de entrada é CSV separado por vírgula, em UTF-8 com ou sem BOM. `title`, `author`, `description` e `url` são obrigatórios. `year`, `genre` e `book_cover` são opcionais. Anos inteiros exportados como `2024.0` são aceitos, e campos opcionais vazios são gravados como nulos. Quando preenchido, `book_cover` deve ser uma URL HTTP ou HTTPS.
+O formato de entrada é CSV separado por vírgula, em UTF-8 com ou sem BOM. `title`, `author`, `description` e `url` são obrigatórios. `year`, `genre` e `book_cover` são opcionais, assim como `avg_rating`, `num_ratings`, `pages` e `publisher`, que são gravados como `nota`, `avaliacoes`, `paginas` e `editora`. Anos e contagens exportados como `2024.0` são aceitos quando representam um inteiro. Campos opcionais vazios são gravados como nulos. Quando preenchido, `book_cover` deve ser uma URL HTTP ou HTTPS.
 
-O número em `goodreads.com/book/show/<id>-...` identifica o registro de origem. A tabela `GoodreadsBook` liga esse número ao ID gerado pelo SQLite. Um ID repetido com dados iguais no CSV representa um único livro. Dados divergentes para o mesmo ID interrompem a validação. Ao reaplicar o CSV, o importador só preenche a capa onde ainda estiver ausente em livros já cadastrados. Os IDs e os demais campos desses livros são preservados.
+O número em `goodreads.com/book/show/<id>-...` identifica o registro de origem. A tabela `GoodreadsBook` liga esse número ao ID gerado pelo SQLite. Um ID repetido com dados iguais no CSV representa um único livro. Dados divergentes para o mesmo ID interrompem a validação. Ao reaplicar o CSV, o importador preenche capa, nota, avaliações, páginas, editora e URL que ainda estiverem nulas. Os IDs e os valores já cadastrados são preservados.
+
+A URL devolvida pela API para um livro importado é montada a partir do ID Goodreads validado, no formato `https://www.goodreads.com/book/show/<id>`.
 
 Para testar outro lote completo, use uma cópia separada do repositório com um `backend/books.db` novo. A reimportação é incremental e mantém os livros já cadastrados, inclusive os ausentes do novo CSV.
 
@@ -135,7 +153,7 @@ Consulta um livro pela chave primária `id`. O parâmetro `book_id` faz parte do
 
 Exemplo: `/books/7` procura o livro de ID `7`, independentemente da página em que ele apareça na listagem.
 
-- Livro encontrado: HTTP `200` com um objeto JSON contendo `id`, `titulo`, `autor`, `ano_publicacao`, `genero`, `descricao` e `capa_url`. Quando não há capa cadastrada, `capa_url` vale `null`.
+- Livro encontrado: HTTP `200` com um objeto JSON com os campos de `Book`. Os campos opcionais que não têm valor cadastrado aparecem como `null`.
 - ID válido, mas inexistente: HTTP `404` com `{"detail": "Livro não encontrado"}`. O mesmo ocorre se o catálogo estiver vazio.
 - ID inválido, como `/books/abc`, `/books/1.5`, `/books/0` ou `/books/-1`: HTTP `422` com detalhes da validação.
 
@@ -147,6 +165,8 @@ Retorna uma lista de recomendações ordenadas por similaridade do cosseno. Cada
 
 Coloque `embeddings_livros.npy` e `livros_metadata.csv`, exportados juntos pelo notebook da equipe, em `backend/app/nlp`. Para usar outro diretório, configure `NLP_ARTIFACTS_DIR`. O CSV identifica a posição de cada vetor pela coluna `book_id` e o livro pela URL do Goodreads. O Backend cruza o ID Goodreads com o SQLite para devolver os IDs usados pela API.
 
+A rota usa o índice de `goodreadsbook.book_id` para encontrar a origem. O cálculo da similaridade percorre a matriz de vetores. Depois de ordenar os candidatos, a API busca os registros no SQLite em lotes e encerra a consulta ao preencher o limite solicitado.
+
 Os arquivos são carregados e validados na primeira consulta de similares. Reinicie o servidor ao substituir os artefatos. A API responde com:
 
 - HTTP `200` e uma lista de similares, sempre sem o próprio livro. A lista fica vazia se o livro existir mas não tiver vetor ou candidatos no catálogo.
@@ -154,7 +174,7 @@ Os arquivos são carregados e validados na primeira consulta de similares. Reini
 - HTTP `422` se o ID ou o limite for inválido.
 - HTTP `503` se o livro tiver vínculo no catálogo e os artefatos para recomendar estiverem ausentes ou inválidos.
 
-O frontend pode usar `GET /books?offset=0&limit=20` no catálogo e `GET /books/{id}` ao abrir um livro. Na mesma página, consulte `GET /books/{id}/similar` para obter os cards de recomendação. Use `livro.id` para abrir um card e preserve a ordem da resposta. Uma lista vazia indica que não há similares para exibir. Em caso de `503`, mantenha o detalhe do livro visível e apresente a indisponibilidade da recomendação. `capa_url` pode ser `null`.
+O frontend pode usar `GET /books?offset=0&limit=20` no catálogo e `GET /books/{id}` ao abrir um livro. Na mesma página, consulte `GET /books/{id}/similar` para obter os cards de recomendação. Use `livro.id` para abrir um card e preserve a ordem da resposta. Uma lista vazia indica que não há similares para exibir. Em caso de `503`, mantenha o detalhe do livro visível e apresente a indisponibilidade da recomendação. Os campos opcionais de `livro` podem ser `null`.
 
 ## 7. Testes automatizados
 
@@ -205,12 +225,12 @@ Em **Variables**, configure:
 BOOKS_DB_PATH=/data/books.db
 NLP_ARTIFACTS_DIR=/data/nlp
 SQL_ECHO=false
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://vitorrsan.github.io
 ```
 
-`BOOKS_DB_PATH` escolhe onde o SQLite será criado; `NLP_ARTIFACTS_DIR` indica a pasta dos vetores e metadados; `SQL_ECHO=false` evita registrar cada consulta SQL nos logs. `CORS_ORIGINS` permite que o navegador acesse a API a partir do frontend local. Quando a interface tiver um domínio próprio, inclua sua origem HTTPS nessa lista, sem caminhos ou barra final.
+`BOOKS_DB_PATH` escolhe o arquivo SQLite. `NLP_ARTIFACTS_DIR` indica a pasta dos vetores e metadados. `SQL_ECHO=false` evita registrar cada consulta SQL nos logs. `CORS_ORIGINS` lista as origens autorizadas a consultar a API a partir do navegador. A origem do GitHub Pages contém apenas o protocolo e o domínio.
 
-Aplique as configurações e aguarde o serviço iniciar. O volume está disponível durante a execução da aplicação, não durante o build nem o pre-deploy. Por isso, a importação descrita abaixo é feita no serviço em execução.
+Aplique as configurações e aguarde o serviço iniciar. A migração roda na inicialização da API, quando o volume está disponível. Execute a importação descrita abaixo no serviço em execução.
 
 ### 8.3. Enviar o lote validado
 
@@ -290,7 +310,9 @@ Invoke-RestMethod "$api/books/$($primeiro.id)/similar?limit=3"
 
 A persistência foi validada após um novo deploy: a API pública manteve os 1.795 livros e o mesmo ranking de recomendações, usando o banco e os artefatos no volume `/data`.
 
-A API está online; o frontend continua sendo executado localmente. Para conectá-lo, configure `API_URL` em `frontend/config.js` com o domínio HTTPS do Railway e teste catálogo, detalhe e recomendações no navegador. A origem da página deve estar incluída em `CORS_ORIGINS`.
+Depois de publicar uma versão que acrescente campos ao catálogo, reaplique o CSV do mesmo lote para preencher os campos nulos nos livros existentes. A migração atualiza a estrutura e o importador preenche os dados sem trocar os IDs.
+
+Use o frontend publicado para conferir catálogo, detalhe e recomendações no navegador. [GitHub Pages](https://vitorrsan.github.io/recomendador-livros/).
 
 ## 9. Funcionalidades futuras
 
@@ -308,4 +330,4 @@ O Backend não depende de dados de exemplo fixados no código para iniciar.
 
 O banco SQLite criado localmente não deve ser enviado ao GitHub.
 
-Os integrantes devem utilizar o `requirements.txt` para instalar as dependências em seus próprios ambientes.
+O Railway instala `requirements.txt`, com as dependências necessárias para executar a API e atualizar o banco. Para desenvolvimento, instale `requirements-dev.txt`, que inclui o ambiente de produção e as ferramentas de teste.

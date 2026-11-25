@@ -1,6 +1,8 @@
 import csv
+from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
+from itertools import islice
 from os import getenv
 from pathlib import Path
 from zipfile import BadZipFile
@@ -31,22 +33,25 @@ class CatalogoVetorial:
         disponiveis: set[str],
         limite: int,
     ) -> list[tuple[str, float]]:
+        candidatos = (
+            (identificador, score)
+            for identificador, score in self.iterar_similares(origem)
+            if identificador in disponiveis
+        )
+        return list(islice(candidatos, limite))
+
+    def iterar_similares(self, origem: str) -> Iterator[tuple[str, float]]:
         posicao = self.posicao_por_id.get(origem)
         if posicao is None:
-            return []
+            return
 
         # O produto escalar entre vetores de norma 1 é o cosseno.
         pontuacoes = np.clip(self.vetores @ self.vetores[posicao], -1.0, 1.0)
         ordem = np.argsort(-pontuacoes, kind="stable")
-        ranking = []
         for indice in ordem:
             candidato = self.ids_por_posicao[indice]
-            if candidato == origem or candidato not in disponiveis:
-                continue
-            ranking.append((candidato, float(pontuacoes[indice])))
-            if len(ranking) == limite:
-                break
-        return ranking
+            if candidato != origem:
+                yield candidato, float(pontuacoes[indice])
 
 
 def ler_ids_por_posicao(caminho: Path, quantidade: int) -> tuple[str, ...]:

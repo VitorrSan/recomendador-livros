@@ -1,10 +1,10 @@
 from os import getenv
 from pathlib import Path
 
-from sqlalchemy import Connection, event, inspect
-from sqlmodel import SQLModel, Session, create_engine
-
-from app import models
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import Connection, event
+from sqlmodel import Session, create_engine
 
 
 # Localização do banco
@@ -31,21 +31,18 @@ def habilitar_chaves_estrangeiras(conexao, _registro):
 
 
 def preparar_banco(conexao: Connection):
-    SQLModel.metadata.create_all(conexao)
-
-    # Bancos antigos precisam da coluna nova antes de consultar Book.
-    colunas = inspect(conexao).get_columns(models.Book.__tablename__)
-    if all(coluna["name"] != "capa_url" for coluna in colunas):
-        conexao.exec_driver_sql("ALTER TABLE book ADD COLUMN capa_url VARCHAR")
+    config = Config(str(BASE_DIR / "alembic.ini"))
+    config.attributes["connection"] = conexao
+    command.upgrade(config, "head")
 
 
-def create_db_and_tables():
+def atualizar_banco():
     with engine.begin() as conexao:
         conexao.exec_driver_sql("BEGIN IMMEDIATE")
         preparar_banco(conexao)
 
 
 # Fornecimento de sessões para a API
-def get_session():
+def obter_sessao():
     with Session(engine) as session:
         yield session

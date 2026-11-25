@@ -12,6 +12,7 @@ from app.models import Book, GoodreadsBook
 
 
 CAMPOS_OBRIGATORIOS = {"title", "author", "description", "url"}
+CAMPOS_COMPLEMENTARES = ("capa_url", "nota", "avaliacoes", "paginas", "editora", "url")
 
 
 def ler_ano(valor: str) -> int | None:
@@ -34,6 +35,34 @@ def ler_capa(valor: str) -> str | None:
     if endereco.scheme not in {"http", "https"} or not endereco.hostname:
         raise ValueError("'book_cover' deve ser uma URL HTTP ou HTTPS ou estar vazio")
     return valor
+
+
+def ler_inteiro(valor: str, coluna: str) -> int | None:
+    valor = valor.strip()
+    if not valor:
+        return None
+
+    formato = re.fullmatch(r"([0-9]+)(?:\.0+)?", valor)
+    if formato is None:
+        raise ValueError(f"'{coluna}' deve ser um inteiro não negativo ou estar vazio")
+    numero = int(formato.group(1))
+    if numero > db.SQLITE_MAX_INTEGER:
+        raise ValueError(f"'{coluna}' deve ser no máximo {db.SQLITE_MAX_INTEGER}")
+    return numero
+
+
+def ler_nota(valor: str) -> float | None:
+    valor = valor.strip()
+    if not valor:
+        return None
+
+    try:
+        nota = float(valor)
+    except ValueError:
+        raise ValueError("'avg_rating' deve ser um número ou estar vazio") from None
+    if not 0 <= nota <= 5:
+        raise ValueError("'avg_rating' deve estar entre 0 e 5")
+    return nota
 
 
 def ler_catalogo(caminho: Path) -> dict[str, Book]:
@@ -65,6 +94,12 @@ def ler_catalogo(caminho: Path) -> dict[str, Book]:
                     ano_publicacao=ler_ano(linha.get("year", "")),
                     genero=linha.get("genre", "").strip() or None,
                     capa_url=ler_capa(linha.get("book_cover", "")),
+                    nota=ler_nota(linha.get("avg_rating", "")),
+                    avaliacoes=ler_inteiro(linha.get("num_ratings", ""), "num_ratings"),
+                    paginas=ler_inteiro(linha.get("pages", ""), "pages"),
+                    editora=linha.get("publisher", "").strip() or None,
+                    # O ID já validado permite um link público sem credenciais ou parâmetros.
+                    url=f"https://www.goodreads.com/book/show/{identificador}",
                 )
                 anterior = livros.get(identificador)
                 if anterior is not None and anterior.model_dump() != livro.model_dump():
@@ -80,7 +115,7 @@ def ler_catalogo(caminho: Path) -> dict[str, Book]:
 
 def gravar_catalogo(livros: dict[str, Book]) -> tuple[int, int]:
     inseridos = 0
-    capas_preenchidas = 0
+    completados = 0
 
     with Session(db.engine) as session:
         conexao = session.connection()
@@ -92,9 +127,13 @@ def gravar_catalogo(livros: dict[str, Book]) -> tuple[int, int]:
         for identificador, livro in livros.items():
             cadastrado = existentes.get(identificador)
             if cadastrado is not None:
-                if cadastrado.capa_url is None and livro.capa_url is not None:
-                    cadastrado.capa_url = livro.capa_url
-                    capas_preenchidas += 1
+                alterado = False
+                for campo in CAMPOS_COMPLEMENTARES:
+                    novo_valor = getattr(livro, campo)
+                    if getattr(cadastrado, campo) is None and novo_valor is not None:
+                        setattr(cadastrado, campo, novo_valor)
+                        alterado = True
+                completados += alterado
                 continue
             session.add(livro)
             # O flush obtém o ID interno sem confirmar a transação.
@@ -104,7 +143,7 @@ def gravar_catalogo(livros: dict[str, Book]) -> tuple[int, int]:
 
         session.commit()
 
-    return inseridos, capas_preenchidas
+    return inseridos, completados
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -121,9 +160,9 @@ def main(argv: list[str] | None = None) -> None:
     print(f"Livros válidos no CSV: {len(livros)}.")
     if args.aplicar:
         db.engine.echo = False
-        inseridos, capas_preenchidas = gravar_catalogo(livros)
+        inseridos, completados = gravar_catalogo(livros)
         print(f"Inseridos: {inseridos}. Já cadastrados: {len(livros) - inseridos}.")
-        print(f"Capas preenchidas em livros existentes: {capas_preenchidas}.")
+        print(f"Livros existentes completados (capa, nota, avaliações etc.): {completados}.")
         print(f"Banco: {db.DB_PATH}")
     else:
         print("Validação concluída. Use --aplicar para gravar no SQLite.")

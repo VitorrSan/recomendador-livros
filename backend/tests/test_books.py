@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.main import app
-from app.db import get_session
+from app.db import obter_sessao
 from app.models import Book
 
 
@@ -27,11 +27,11 @@ def engine_teste(tmp_path):
 
 @pytest.fixture
 def client(engine_teste, monkeypatch):
-    def get_session_teste():
+    def obter_sessao_teste():
         with Session(engine_teste) as session:
             yield session
 
-    monkeypatch.setitem(app.dependency_overrides, get_session, get_session_teste)
+    monkeypatch.setitem(app.dependency_overrides, obter_sessao, obter_sessao_teste)
     client = TestClient(app)
 
     try:
@@ -157,6 +157,11 @@ def test_buscar_livro_por_id(client, catalogo, book_id):
         "genero": None,
         "descricao": "Descrição para validar a paginação",
         "capa_url": None,
+        "nota": None,
+        "avaliacoes": None,
+        "paginas": None,
+        "editora": None,
+        "url": None,
     }
 
 
