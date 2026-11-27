@@ -58,6 +58,7 @@ test("carrega todas as páginas do catálogo pela rota do Backend", async () => 
     { offset: 0, limit: 100 },
     { offset: 100, limit: 100 },
     { offset: 200, limit: 100 },
+    { offset: 300, limit: 100 },
   ]);
 });
 
@@ -141,6 +142,9 @@ test("usa a API configurada sem duplicar a barra do endereço", async () => {
 
   assert.deepEqual(chamadas, [
     "https://api.example.org/books?offset=0&limit=100",
+    "https://api.example.org/books?offset=100&limit=100",
+    "https://api.example.org/books?offset=200&limit=100",
+    "https://api.example.org/books?offset=300&limit=100",
     "https://api.example.org/books/1/similar?limit=10",
   ]);
 });
@@ -192,4 +196,23 @@ test("capas e links rejeitam protocolos que podem executar conteúdo", () => {
   const seguro = contexto.padronizarLivro({ id: 2, capa_url: 'https://covers.example.org/2.jpg', url: 'https://goodreads.com/book/show/2' });
   assert.equal(seguro.capa, 'https://covers.example.org/2.jpg');
   assert.equal(seguro.url, 'https://goodreads.com/book/show/2');
+});
+
+test("lê nota, avaliações, páginas, editora e link enviados pela API", () => {
+  const { contexto } = carregarInterface();
+  const livro = contexto.padronizarLivro({
+    id: 5,
+    titulo: "Maré",
+    nota: 4.25,
+    avaliacoes: 12345,
+    paginas: 320,
+    editora: "Editora X",
+    url: "https://www.goodreads.com/book/show/5-mare",
+  });
+
+  assert.equal(livro.nota, 4.25);
+  assert.equal(livro.avaliacoes, 12345);
+  assert.equal(livro.paginas, 320);
+  assert.equal(livro.editora, "Editora X");
+  assert.equal(livro.url, "https://www.goodreads.com/book/show/5-mare");
 });
