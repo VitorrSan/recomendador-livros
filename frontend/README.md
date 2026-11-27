@@ -52,7 +52,7 @@ Na inicialização, `carregarLivros()` percorre `GET /books?offset=0&limit=100` 
 
 Ao abrir um livro, o detalhe usa o registro já carregado. A interface solicita `GET /books/{id}/similar?limit=10` para receber até dez recomendações. A resposta é uma lista de objetos com `livro`, que contém os dados completos do recomendado, e `similaridade`, com o valor do cosseno. A navegação usa o ID interno devolvido em `livro.id`.
 
-O adaptador de dados lê `capa_url` e `ano_publicacao` da API. Os campos `nota`, quantidade de avaliações, páginas, editora e URL externa são opcionais na interface. A API atual fornece o catálogo por gênero e o detalhe com os campos documentados no Backend. Se uma fonte de dados também fornecer notas e avaliações, a interface pode apresentar as fileiras "Mais bem avaliados" e "Mais populares" e escolher o destaque por nota. Sem esses campos, o destaque usa o primeiro livro do catálogo.
+O adaptador de dados lê `capa_url`, `ano_publicacao`, `nota`, `avaliacoes`, `paginas`, `editora` e `url` da API. Com `nota` e `avaliacoes` preenchidos, a tela inicial mostra as fileiras "Mais bem avaliados" e "Mais populares", o destaque é escolhido por nota e a página do livro mostra o link "Ver no Goodreads". Campos `null` são ignorados e a interface continua funcionando só com as fileiras por gênero.
 
 Se a resposta de similares for uma lista vazia, a página informa que não há similares cadastrados para aquele livro. Se a consulta falhar, mantém o detalhe e apresenta uma mensagem de erro na seção de recomendações.
 

@@ -56,17 +56,25 @@ function padronizarSimilar(s) {
 }
 
 // ===== CAMADA DE DADOS (única parte que muda entre estático e API) =====
+async function carregarPagina(offset, limite) {
+  const r = await fetch(`${API_URL}/books?offset=${offset}&limit=${limite}`);
+  if (!r.ok) throw new Error(r.status);
+  const pagina = await r.json();
+  if (!Array.isArray(pagina)) throw new Error("Resposta de catálogo inválida");
+  return pagina;
+}
 async function carregarLivros() {
   if (API_URL) {
+    // Pede as páginas em lotes paralelos: com 1.800 livros são 5 idas ao servidor em vez de 18.
     const catalogo = [];
     const limite = 100;
-    for (let offset = 0; ; offset += limite) {
-      const r = await fetch(`${API_URL}/books?offset=${offset}&limit=${limite}`);
-      if (!r.ok) throw new Error(r.status);
-      const pagina = await r.json();
-      if (!Array.isArray(pagina)) throw new Error("Resposta de catálogo inválida");
-      catalogo.push(...pagina);
-      if (pagina.length < limite) return catalogo;
+    const paralelas = 4;
+    for (let offset = 0; ; offset += limite * paralelas) {
+      const lote = await Promise.all(
+        Array.from({ length: paralelas }, (_, i) => carregarPagina(offset + i * limite, limite)),
+      );
+      for (const pagina of lote) catalogo.push(...pagina);
+      if (lote.some(pagina => pagina.length < limite)) return catalogo;
     }
   }
   if (typeof DADOS === "undefined") throw new Error("dados.js não carregou");
